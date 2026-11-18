@@ -1,0 +1,39 @@
+# Prova veloce della sola opzione 15 (analisi completa) su Windows di GitHub.
+# Parte con un push sul ramo "test-15" oppure a mano da Actions.
+name: Prova opzione 15
+on:
+  push:
+    branches: [test-15]
+  workflow_dispatch:
+
+jobs:
+  analisi:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Controllo sintassi della parte PowerShell
+        shell: pwsh
+        run: |
+          $t = [IO.File]::ReadAllText("$PWD\RinascitaPC.bat")
+          $p = ($t -split ('#PS' + '_ANALISI#'), 2)[1]
+          Set-Content analisi.ps1 -Value $p -Encoding utf8
+          $tok = $null; $err = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\analisi.ps1", [ref]$tok, [ref]$err)
+          if ($err.Count) { $err | ForEach-Object { "RIGA $($_.Extent.StartLineNumber): $($_.Message)" }; throw 'errori di sintassi' } else { 'SINTASSI OK' }
+
+      - name: Opzione 15 dal menu
+        if: always()
+        shell: pwsh
+        timeout-minutes: 20
+        run: |
+          Set-Content in15.txt -Value ("15" + ("`r`n0" * 50) + "`r`n") -NoNewline -Encoding ascii
+          cmd /c "RinascitaPC.bat < in15.txt > out15.txt 2>&1"
+          Get-Content out15.txt -Tail 80
+          $f = Get-ChildItem -Path ([Environment]::GetFolderPath('Desktop')), "$env:PUBLIC\Desktop", 'C:\' -Filter analisi_completa.txt -Recurse -Depth 2 -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+          if (-not $f) { throw 'analisi_completa.txt non creato' }
+          "===== $($f.FullName)"
+          Get-Content $f.FullName
+          $r = Get-ChildItem -Path ([Environment]::GetFolderPath('Desktop')) -Filter 'RinascitaPC_rapporto_*' -ErrorAction SilentlyContinue | Select-Object -Last 1
+          if ($r) { "===== RAPPORTO $($r.Name): $($r.Length) byte" }
