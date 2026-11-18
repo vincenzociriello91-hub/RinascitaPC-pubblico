@@ -1137,7 +1137,7 @@ function Sec([string]$n, [scriptblock]$blocco) {
 }
 function EvData($e) { $h = @{}; try { ([xml]$e.ToXml()).Event.EventData.Data | ForEach-Object { $h[$_.Name] = $_.'#text' } } catch {}; $h }
 function FolderSize($p) { if (Test-Path -LiteralPath $p) { (Get-ChildItem -LiteralPath $p -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum } else { $null } }
-function Data($d) { if ($d) { $d.ToString('dd-MM-yyyy HH:mm') } else { '?' } }
+function DataOra($d) { if ($d) { $d.ToString('dd-MM-yyyy HH:mm') } else { '?' } }
 
 $cs = Get-CimInstance Win32_ComputerSystem
 $os = Get-CimInstance Win32_OperatingSystem
@@ -1154,10 +1154,10 @@ Sec 'SISTEMA' {
     KV 'Tipo' $tipo
     KV 'Seriale' $bios.SerialNumber
     KV 'Scheda madre' "$($bb.Manufacturer) $($bb.Product) $($bb.Version)"
-    KV 'BIOS' "$($bios.SMBIOSBIOSVersion) del $(Data $bios.ReleaseDate)"
+    KV 'BIOS' "$($bios.SMBIOSBIOSVersion) del $(DataOra $bios.ReleaseDate)"
     KV 'Windows' "$($os.Caption) $($nt.DisplayVersion) - build $($os.BuildNumber).$($nt.UBR) - $($os.OSArchitecture)"
-    KV 'Installato il' (Data $os.InstallDate)
-    KV 'Ultimo avvio' (Data $os.LastBootUpTime)
+    KV 'Installato il' (DataOra $os.InstallDate)
+    KV 'Ultimo avvio' (DataOra $os.LastBootUpTime)
     $up = (Get-Date) - $os.LastBootUpTime
     KV 'Acceso da' ('{0} giorni {1} ore {2} minuti' -f $up.Days, $up.Hours, $up.Minutes)
     $secb = try { if (Confirm-SecureBootUEFI -ErrorAction Stop) { 'attivo' } else { 'disattivato' } } catch { 'non supportato (BIOS legacy)' }
@@ -1230,9 +1230,9 @@ Sec 'MEMORIA RAM' {
 Sec 'GRAFICA E SCHERMI' {
     foreach ($g in Get-CimInstance Win32_VideoController) {
         KV 'Scheda' $g.Name
-        KV '  driver' "$($g.DriverVersion) del $(Data $g.DriverDate)"
+        KV '  driver' "$($g.DriverVersion) del $(DataOra $g.DriverDate)"
         if ($g.CurrentHorizontalResolution) { KV '  risoluzione' "$($g.CurrentHorizontalResolution)x$($g.CurrentVerticalResolution) a $($g.CurrentRefreshRate) Hz" }
-        if ($g.DriverDate -and $g.DriverDate -lt (Get-Date).AddYears(-2)) { Flag "Driver grafico vecchio: $($g.Name) del $(Data $g.DriverDate)" }
+        if ($g.DriverDate -and $g.DriverDate -lt (Get-Date).AddYears(-2)) { Flag "Driver grafico vecchio: $($g.Name) del $(DataOra $g.DriverDate)" }
     }
     Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID | ForEach-Object {
         $n = -join ($_.UserFriendlyName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })
@@ -1415,7 +1415,7 @@ Sec 'AVVIO DI WINDOWS' {
     if ($ev.Count) {
         foreach ($e in $ev) {
             $d = EvData $e
-            KV ('Avvio del ' + (Data $e.TimeCreated)) ('{0} s (fino al desktop {1} s + dopo il desktop {2} s)' -f [math]::Round([double]$d.BootTime / 1000, 1), [math]::Round([double]$d.MainPathBootTime / 1000, 1), [math]::Round([double]$d.BootPostBootTime / 1000, 1))
+            KV ('Avvio del ' + (DataOra $e.TimeCreated)) ('{0} s (fino al desktop {1} s + dopo il desktop {2} s)' -f [math]::Round([double]$d.BootTime / 1000, 1), [math]::Round([double]$d.MainPathBootTime / 1000, 1), [math]::Round([double]$d.BootPostBootTime / 1000, 1))
         }
         $bt = [math]::Round([double](EvData $ev[0]).BootTime / 1000)
         if ($bt -gt 60) { Flag "Avvio lento: $bt secondi" }
@@ -1480,7 +1480,7 @@ Sec 'SICUREZZA' {
     $other = @($av | Where-Object { $_.displayName -notmatch 'Defender' })
     if ($mp) {
         KV 'Defender protezione in tempo reale' $mp.RealTimeProtectionEnabled
-        KV 'Defender firme aggiornate il' (Data $mp.AntivirusSignatureLastUpdated)
+        KV 'Defender firme aggiornate il' (DataOra $mp.AntivirusSignatureLastUpdated)
         KV 'Defender ultima scansione veloce' "$($mp.QuickScanAge) giorni fa"
         KV 'Protezione antimanomissione' $mp.IsTamperProtected
         if (-not $mp.RealTimeProtectionEnabled -and -not $other.Count) { Flag 'Antivirus spento: nessuna protezione in tempo reale' }
@@ -1516,7 +1516,7 @@ Sec 'ERRORI, CRASH E SCHERMATE BLU' {
     $d30 = (Get-Date).AddDays(-30)
     $bsod = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WER-SystemErrorReporting'; Id = 1001; StartTime = (Get-Date).AddDays(-90) })
     KV 'Schermate blu (90 giorni)' $bsod.Count
-    $bsod | Select-Object -First 5 | ForEach-Object { '    ' + (Data $_.TimeCreated) + ' - ' + ((("$($_.Message)") -split "`n")[0]).Trim() }
+    $bsod | Select-Object -First 5 | ForEach-Object { '    ' + (DataOra $_.TimeCreated) + ' - ' + ((("$($_.Message)") -split "`n")[0]).Trim() }
     if ($bsod.Count) { Flag "$($bsod.Count) schermate blu negli ultimi 90 giorni" }
     KV 'File minidump' (@(Get-ChildItem "$env:windir\Minidump" -Filter *.dmp).Count)
     $kp = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 41; StartTime = $d30 })
