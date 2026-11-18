@@ -1036,6 +1036,7 @@ if errorlevel 2 goto menu
 call :titolo "RIPARA TUTTO"
 call :riavvio_sospeso
 if not "%RIAVVIO%"=="1" goto ripara_tutto_fase2
+if defined RINASCITA_SOLOPIANO (call :log "Riavvio in sospeso: nella prova non riavvio" & goto ripara_tutto_fase2)
 call :log "Riavvio in sospeso: riavvio il PC tra 60 secondi, poi la riparazione riparte da sola"
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v RinascitaPC /t REG_SZ /d "\"%SELF%\" ripara" /f >nul 2>&1
 call :rapporto
