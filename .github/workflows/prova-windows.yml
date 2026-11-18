@@ -1,0 +1,94 @@
+# Prova di RinascitaPC su una vera macchina virtuale Windows di GitHub (usa e getta).
+# Va in .github/workflows/ ; parte da solo quando si fa push sul ramo "test-vm"
+# oppure a mano da Actions > "Prova su Windows reale" > Run workflow.
+name: Prova su Windows reale
+on:
+  push:
+    branches: [test-vm]  # sul ramo principale parte solo a mano (Run workflow)
+  workflow_dispatch:
+
+jobs:
+  prova:
+    runs-on: windows-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Macchina virtuale
+        shell: pwsh
+        run: |
+          Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List
+          Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer, Model, TotalPhysicalMemory | Format-List
+          winget --version
+
+      # 1) Autoaggiornamento reale: una copia che si crede 3.5 deve scaricare la 3.6 dalla web app e sostituirsi.
+      - name: Autoaggiornamento
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          New-Item -ItemType Directory -Force upd | Out-Null
+          (Get-Content RinascitaPC.bat -Raw) -replace 'set "VERSIONE=\d+\.\d+ ', 'set "VERSIONE=3.5 ' | Set-Content upd\RinascitaPC.bat -NoNewline -Encoding ascii
+          Set-Content upd\in.txt -Value ("S" + "`r`n" + ("0`r`n" * 50)) -NoNewline -Encoding ascii
+          cmd /c "upd\RinascitaPC.bat < upd\in.txt > upd\out.txt 2>&1"
+          Start-Sleep -Seconds 20
+          Get-Content upd\out.txt
+          Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*upd\RinascitaPC.bat*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+          $v = Select-String -Path upd\RinascitaPC.bat -Pattern 'set "VERSIONE=([\d.]+) ' | ForEach-Object { $_.Matches[0].Groups[1].Value }
+          "Versione dopo l'aggiornamento: $v ; copia di sicurezza: $(Test-Path upd\RinascitaPC_precedente.bat)"
+          if ($v -eq '3.5' -or -not (Test-Path upd\RinascitaPC_precedente.bat)) { throw 'Autoaggiornamento NON riuscito' }
+
+      # 2) Opzione 13 Verifica (sola lettura), con SFC.
+      - name: Verifica opzione 13
+        if: always()
+        shell: pwsh
+        timeout-minutes: 75
+        run: |
+          Set-Content in13.txt -Value ("13`r`nS" + ("`r`n0" * 50) + "`r`n") -NoNewline -Encoding ascii
+          cmd /c "RinascitaPC.bat < in13.txt > out13.txt 2>&1"
+          Get-Content out13.txt -Tail 150
+
+      # 2b) Opzione 15 Analisi completa (sola lettura).
+      - name: Analisi completa opzione 15
+        if: always()
+        shell: pwsh
+        timeout-minutes: 25
+        run: |
+          Set-Content in15.txt -Value ("15" + ("`r`n0" * 50) + "`r`n") -NoNewline -Encoding ascii
+          cmd /c "RinascitaPC.bat < in15.txt > out15.txt 2>&1"
+          Get-Content out15.txt -Tail 60
+          $f = Get-ChildItem -Path ([Environment]::GetFolderPath('Desktop')), "$env:PUBLIC\Desktop", 'C:\' -Filter analisi_completa.txt -Recurse -Depth 2 -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+          if (-not $f) { throw 'analisi_completa.txt non creato' }
+          "===== $($f.FullName)"
+          Get-Content $f.FullName
+
+      # 3) Modalita' completa (opzione 1): sulla VM usa e getta si puo' fare tutto davvero.
+      #    Risposte: Iniziare S, senza ripristino S, app S, Cestino N, strumenti driver S,
+      #    programmi S + "1 4", animazioni S, profilo 2, scheda online N, test RAM N, riavvio N.
+      - name: Modalita' completa opzione 1
+        if: always()
+        shell: pwsh
+        timeout-minutes: 200
+        run: |
+          Set-Content in1.txt -Value ("1`r`nSSSNSS" + "1 4`r`n" + "S2NNN" + "x" + ("`r`n0" * 50) + "`r`n") -NoNewline -Encoding ascii
+          cmd /c "RinascitaPC.bat < in1.txt > out1.txt 2>&1"
+          Get-Content out1.txt -Tail 250
+
+      - name: Raccogli rapporti
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force risultati | Out-Null
+          Copy-Item *.txt, upd\*.txt risultati\ -ErrorAction SilentlyContinue
+          foreach ($d in @([Environment]::GetFolderPath('Desktop'), "$env:PUBLIC\Desktop", 'C:\')) {
+            Get-ChildItem -Path $d -Filter 'RinascitaPC_*' -ErrorAction SilentlyContinue | Copy-Item -Destination risultati\ -Recurse -Force
+          }
+          Get-ChildItem risultati -Recurse | Select-Object FullName, Length
+          # L'artifact non sempre si scarica da fuori: i rapporti finiscono anche nel log.
+          Get-ChildItem risultati -Recurse -File | Where-Object { $_.Name -like 'RinascitaPC_rapporto_*' -or $_.Name -in 'misure.txt','registro.txt' } | ForEach-Object { "===== $($_.FullName)"; Get-Content $_.FullName }
+          foreach ($f in 'out13.txt','out15.txt','out1.txt') { if (Test-Path risultati\$f) { "===== $f : $((Get-Item risultati\$f).Length) byte, menu mostrati: $((Select-String -Path risultati\$f -SimpleMatch 'Scegli un''opzione').Count)" } }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risultati-prova-windows
+          path: risultati
