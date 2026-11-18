@@ -1100,34 +1100,54 @@ if defined ANNULLA goto ripara_tutto_annulla
 if defined F_BLOAT call :bloatware
 if defined F_PULIZIA call :pulizia
 if defined F_WU call :wu_reset
-call :titolo "RIPRISTINO DI WINDOWS UPDATE"
-call :log "Fermo Windows Update e i servizi collegati, azzero la sua cache e lo riavvio"
-set "WUTRY=0"
-:wu_reset_ferma
-for %%s in (wuauserv UsoSvc DoSvc WaaSMedicSvc bits cryptsvc msiserver) do net stop %%s /y >nul 2>&1
-timeout /t 5 /nobreak >nul
-rd /s /q "%SystemRoot%\SoftwareDistribution.old" >nul 2>&1
-ren "%SystemRoot%\SoftwareDistribution" SoftwareDistribution.old >nul 2>&1 && goto wu_reset_ok
-set /a WUTRY+=1
-if %WUTRY% LSS 3 goto wu_reset_ferma
-for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
-call :esito "Ripristino di Windows Update" ATT "cache ancora in uso: riavvia il PC e ripeti l'opzione 14"
-exit /b
-:wu_reset_ok
-rd /s /q "%SystemRoot%\System32\catroot2.old" >nul 2>&1
-ren "%SystemRoot%\System32\catroot2" catroot2.old >nul 2>&1
-for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
-powershell -NoProfile -Command "$d=Join-Path $env:ProgramData 'RinascitaPC'; New-Item -ItemType Directory -Force -Path $d | Out-Null; Set-Content -LiteralPath (Join-Path $d 'wu_reset.txt') -Value (Get-Date -Format o) -Encoding ASCII"
-usoclient StartInteractiveScan >nul 2>&1
-call :esito "Ripristino di Windows Update" OK "cache azzerata, ricerca aggiornamenti avviata"
-exit /b
-echo   Due antivirus insieme rallentano il PC, soprattutto all'avvio.
-echo   Microsoft Defender e' gia' incluso in Windows: da solo basta.
-echo   Se l'altro antivirus l'hai pagato o lo vuoi tenere, rispondi N.
-choice /c SN /t 60 /d N /m " Aprire la disinstallazione dell'altro antivirus (No automatico tra 60 s)"
-if errorlevel 2 (call :esito "Due antivirus attivi" ATT "lasciati tutti e due su tua scelta" & exit /b)
-powershell -NoProfile -Command "$av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' }); $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'; $n=0; foreach($a in $av){ $w=([string]$a.displayName -split ' ')[0]; $e=Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object { ([string]$_.DisplayName + ' ' + [string]$_.Publisher) -match [regex]::Escape($w) -and $_.UninstallString } | Select-Object -First 1; if($e){ if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    apro la disinstallazione di ' + $e.DisplayName) -Encoding ASCII }; Start-Process -FilePath cmd.exe -ArgumentList ('/c ' + $e.UninstallString) -Wait; $n++ } }; exit $n"
-if errorlevel 1 (call :esito "Due antivirus attivi" OK "disinstallazione dell'altro antivirus aperta: completala nella sua finestra") else (call :esito "Due antivirus attivi" ATT "disinstallazione non trovata: usa lo strumento di rimozione ufficiale del produttore (per Norton: Norton Remove and Reinstall)")
+if defined F_RIPARA call :ripara
+if defined F_PREST call :prestazioni
+if defined F_AGG call :aggiorna
+if defined F_DRV call :driver_dispositivi
+if defined F_DISCHI call :dischi
+if defined F_AV call :antivirus_on
+if defined F_AV2 call :antivirus_doppio
+call :log "=== RIPARA TUTTO COMPLETATO ==="
+set "MODO="
+call :esito_riepilogo
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v RinascitaPC /t REG_SZ /d "\"%SELF%\" verifica" /f >nul 2>&1
+call :log "Riavvio il PC tra 2 minuti: dopo il riavvio la verifica parte da sola"
+call :rapporto
+shutdown /r /t 120 /c "RinascitaPC: riparazione finita. Riavvio tra 2 minuti, poi parte la verifica."
+exit
+
+:ripara_tutto_niente
+call :log "La verifica non ha trovato niente da sistemare: nessuna modifica"
+:ripara_tutto_niente_fine
+set "MODO="
+call :esito_riepilogo
+call :rapporto
+echo.
+pause
+goto menu
+
+:ripara_tutto_annulla
+call :log "Riparazione annullata: senza punto di ripristino non modifico Windows"
+set "ANNULLA="
+set "MODO="
+call :rapporto
+pause
+goto menu
+
+:verifica_dopo_ripara
+set "ARG1="
+call :esito_reset
+call :verifica
+call :rapporto
+echo.
+echo Verifica dopo la riparazione finita. Premi un tasto per tornare al menu.
+pause >nul
+goto menu
+
+:riavvio_sospeso
+set "RIAVVIO=0"
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" >nul 2>&1 && set "RIAVVIO=1"
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" >nul 2>&1 && set "RIAVVIO=1"
 exit /b
 
 :antivirus_on
@@ -1196,16 +1216,25 @@ exit /b
 :: Windows Update che fallisce di continuo: azzera la sua cache e lo riavvia.
 :wu_reset
 call :titolo "RIPRISTINO DI WINDOWS UPDATE"
-call :log "Fermo Windows Update, azzero la sua cache e lo riavvio"
-for %%s in (wuauserv bits cryptsvc) do net stop %%s >nul 2>&1
+call :log "Fermo Windows Update e i servizi collegati, azzero la sua cache e lo riavvio"
+set "WUTRY=0"
+:wu_reset_ferma
+for %%s in (wuauserv UsoSvc DoSvc WaaSMedicSvc bits cryptsvc msiserver) do net stop %%s /y >nul 2>&1
+timeout /t 5 /nobreak >nul
 rd /s /q "%SystemRoot%\SoftwareDistribution.old" >nul 2>&1
-ren "%SystemRoot%\SoftwareDistribution" SoftwareDistribution.old >nul 2>&1
-set "WURC=%errorlevel%"
+ren "%SystemRoot%\SoftwareDistribution" SoftwareDistribution.old >nul 2>&1 && goto wu_reset_ok
+set /a WUTRY+=1
+if %WUTRY% LSS 3 goto wu_reset_ferma
+for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
+call :esito "Ripristino di Windows Update" ATT "cache ancora in uso: riavvia il PC e ripeti l'opzione 14"
+exit /b
+:wu_reset_ok
 rd /s /q "%SystemRoot%\System32\catroot2.old" >nul 2>&1
 ren "%SystemRoot%\System32\catroot2" catroot2.old >nul 2>&1
 for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
+powershell -NoProfile -Command "$d=Join-Path $env:ProgramData 'RinascitaPC'; New-Item -ItemType Directory -Force -Path $d | Out-Null; Set-Content -LiteralPath (Join-Path $d 'wu_reset.txt') -Value (Get-Date -Format o) -Encoding ASCII"
 usoclient StartInteractiveScan >nul 2>&1
-if "%WURC%"=="0" (call :esito "Ripristino di Windows Update" OK "cache azzerata, ricerca aggiornamenti avviata") else (call :esito "Ripristino di Windows Update" ATT "cache in uso: riprova dopo un riavvio")
+call :esito "Ripristino di Windows Update" OK "cache azzerata, ricerca aggiornamenti avviata"
 exit /b
 
 :: Dispositivi in errore: driver da Windows Update e pagina ufficiale dei driver.
@@ -1221,13 +1250,19 @@ exit /b
 :: Microsoft Defender non viene mai disattivato.
 :antivirus_doppio
 call :titolo "DUE ANTIVIRUS ATTIVI INSIEME"
+:: Prima pulisce le registrazioni rimaste di antivirus gia' disinstallati (il loro programma non esiste piu').
+powershell -NoProfile -Command "$n=0; foreach($a in @(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' -and $_.pathToSignedProductExe -and -not (Test-Path -LiteralPath ([Environment]::ExpandEnvironmentVariables([string]$_.pathToSignedProductExe))) })){ try { Remove-CimInstance -InputObject $a -ErrorAction Stop; $n++; if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    registrazione rimasta tolta: ' + $a.displayName) -Encoding ASCII } } catch {} }; exit $n"
+set "AVP=%errorlevel%"
+if not "%AVP%"=="0" call :esito "Antivirus gia' disinstallato ancora registrato" OK "registrazione tolta da Sicurezza di Windows"
+powershell -NoProfile -Command "exit @(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' }).Count"
+if "%errorlevel%"=="0" exit /b
 echo   Due antivirus insieme rallentano il PC, soprattutto all'avvio.
 echo   Microsoft Defender e' gia' incluso in Windows: da solo basta.
 echo   Se l'altro antivirus l'hai pagato o lo vuoi tenere, rispondi N.
 choice /c SN /t 60 /d N /m " Aprire la disinstallazione dell'altro antivirus (No automatico tra 60 s)"
 if errorlevel 2 (call :esito "Due antivirus attivi" ATT "lasciati tutti e due su tua scelta" & exit /b)
-powershell -NoProfile -Command "$av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' }); $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'; $n=0; foreach($a in $av){ $w=([string]$a.displayName -split ' ')[0]; $e=Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object { [string]$_.DisplayName -match [regex]::Escape($w) -and $_.UninstallString } | Select-Object -First 1; if($e){ if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    apro la disinstallazione di ' + $e.DisplayName) -Encoding ASCII }; Start-Process -FilePath cmd.exe -ArgumentList ('/c ' + $e.UninstallString) -Wait; $n++ } }; exit $n"
-if errorlevel 1 (call :esito "Due antivirus attivi" OK "disinstallazione dell'altro antivirus aperta: completala nella sua finestra") else (call :esito "Due antivirus attivi" ATT "disinstallazione non trovata: toglilo da Impostazioni - App - App installate")
+powershell -NoProfile -Command "$av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' }); $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'; $n=0; foreach($a in $av){ $w=([string]$a.displayName -split ' ')[0]; $e=Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object { ([string]$_.DisplayName + ' ' + [string]$_.Publisher) -match [regex]::Escape($w) -and $_.UninstallString } | Select-Object -First 1; if($e){ if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    apro la disinstallazione di ' + $e.DisplayName) -Encoding ASCII }; Start-Process -FilePath cmd.exe -ArgumentList ('/c ' + $e.UninstallString) -Wait; $n++ } }; exit $n"
+if errorlevel 1 (call :esito "Due antivirus attivi" OK "disinstallazione dell'altro antivirus aperta: completala nella sua finestra") else (call :esito "Due antivirus attivi" ATT "disinstallazione non trovata: usa lo strumento di rimozione ufficiale del produttore (per Norton: Norton Remove and Reinstall)")
 exit /b
 
 :: Da qui in giu' c'e' solo lo script PowerShell dell'opzione 15: il batch non arriva mai qui.
