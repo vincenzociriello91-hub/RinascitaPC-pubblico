@@ -1138,6 +1138,8 @@ function Sec([string]$n, [scriptblock]$blocco) {
 function EvData($e) { $h = @{}; try { ([xml]$e.ToXml()).Event.EventData.Data | ForEach-Object { $h[$_.Name] = $_.'#text' } } catch {}; $h }
 function FolderSize($p) { if (Test-Path -LiteralPath $p) { (Get-ChildItem -LiteralPath $p -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum } else { $null } }
 function DataOra($d) { if ($d) { $d.ToString('dd-MM-yyyy HH:mm') } else { '?' } }
+function Giorno($d) { if ($d) { $d.ToString('dd-MM-yyyy') } else { '?' } }
+function Ev($h, $max) { try { if ($max) { @(Get-WinEvent -FilterHashtable $h -MaxEvents $max -ErrorAction Stop) } else { @(Get-WinEvent -FilterHashtable $h -ErrorAction Stop) } } catch { @() } }
 
 $cs = Get-CimInstance Win32_ComputerSystem
 $os = Get-CimInstance Win32_OperatingSystem
@@ -1154,7 +1156,7 @@ Sec 'SISTEMA' {
     KV 'Tipo' $tipo
     KV 'Seriale' $bios.SerialNumber
     KV 'Scheda madre' "$($bb.Manufacturer) $($bb.Product) $($bb.Version)"
-    KV 'BIOS' "$($bios.SMBIOSBIOSVersion) del $(DataOra $bios.ReleaseDate)"
+    KV 'BIOS' "$($bios.SMBIOSBIOSVersion) del $(Giorno $bios.ReleaseDate)"
     KV 'Windows' "$($os.Caption) $($nt.DisplayVersion) - build $($os.BuildNumber).$($nt.UBR) - $($os.OSArchitecture)"
     KV 'Installato il' (DataOra $os.InstallDate)
     KV 'Ultimo avvio' (DataOra $os.LastBootUpTime)
@@ -1230,9 +1232,9 @@ Sec 'MEMORIA RAM' {
 Sec 'GRAFICA E SCHERMI' {
     foreach ($g in Get-CimInstance Win32_VideoController) {
         KV 'Scheda' $g.Name
-        KV '  driver' "$($g.DriverVersion) del $(DataOra $g.DriverDate)"
+        KV '  driver' "$($g.DriverVersion) del $(Giorno $g.DriverDate)"
         if ($g.CurrentHorizontalResolution) { KV '  risoluzione' "$($g.CurrentHorizontalResolution)x$($g.CurrentVerticalResolution) a $($g.CurrentRefreshRate) Hz" }
-        if ($g.DriverDate -and $g.DriverDate -lt (Get-Date).AddYears(-2)) { Flag "Driver grafico vecchio: $($g.Name) del $(DataOra $g.DriverDate)" }
+        if ($g.DriverDate -and $g.DriverDate -lt (Get-Date).AddYears(-2)) { Flag "Driver grafico vecchio: $($g.Name) del $(Giorno $g.DriverDate)" }
     }
     Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID | ForEach-Object {
         $n = -join ($_.UserFriendlyName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })
@@ -1359,7 +1361,7 @@ Sec 'RETE E INTERNET' {
 # ---------------------------------------------------------------- PERIFERICHE
 Sec 'PERIFERICHE E DRIVER' {
     $bad = @(Get-PnpDevice -PresentOnly | Where-Object { $_.Status -ne 'OK' -and $_.Status -ne 'Unknown' })
-    if ($bad.Count) { foreach ($d in $bad) { Flag "Dispositivo con problemi: $($d.FriendlyName) [$($d.Class)] - stato $($d.Status) - codice $($d.ConfigManagerErrorCode)" } }
+    if ($bad.Count) { foreach ($d in $bad) { Flag "Dispositivo con problemi: $(if ($d.FriendlyName) { $d.FriendlyName } else { $d.InstanceId }) [$($d.Class)] - stato $($d.Status) - codice $($d.ConfigManagerErrorCode)" } }
     else { Info 'Tutti i dispositivi funzionano' }
     KV 'Dispositivi presenti' (@(Get-PnpDevice -PresentOnly).Count)
     ''
@@ -1411,7 +1413,7 @@ Sec 'AGGIORNAMENTI' {
 # ---------------------------------------------------------------- AVVIO
 Sec 'AVVIO DI WINDOWS' {
     $log = 'Microsoft-Windows-Diagnostics-Performance/Operational'
-    $ev = @(Get-WinEvent -FilterHashtable @{ LogName = $log; Id = 100 } -MaxEvents 5)
+    $ev = @(Ev @{ LogName = $log; Id = 100 } 5)
     if ($ev.Count) {
         foreach ($e in $ev) {
             $d = EvData $e
@@ -1419,7 +1421,7 @@ Sec 'AVVIO DI WINDOWS' {
         }
         $bt = [math]::Round([double](EvData $ev[0]).BootTime / 1000)
         if ($bt -gt 60) { Flag "Avvio lento: $bt secondi" }
-        $slow = @(Get-WinEvent -FilterHashtable @{ LogName = $log; Id = 101..110; StartTime = (Get-Date).AddDays(-60) })
+        $slow = @(Ev @{ LogName = $log; Id = 101..110; StartTime = (Get-Date).AddDays(-60) })
         if ($slow.Count) {
             'Cosa rallenta l''avvio (ultimi 60 giorni):'
             $slow | ForEach-Object { $d = EvData $_; [pscustomobject]@{ Nome = $(if ($d.FriendlyName) { $d.FriendlyName } else { $d.Name }); Ritardo = [double]$d.DegradationTime } } |
@@ -1514,28 +1516,28 @@ Sec 'INTEGRITA DI WINDOWS' {
 # ---------------------------------------------------------------- ERRORI
 Sec 'ERRORI, CRASH E SCHERMATE BLU' {
     $d30 = (Get-Date).AddDays(-30)
-    $bsod = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WER-SystemErrorReporting'; Id = 1001; StartTime = (Get-Date).AddDays(-90) })
+    $bsod = @(Ev @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WER-SystemErrorReporting'; Id = 1001; StartTime = (Get-Date).AddDays(-90) })
     KV 'Schermate blu (90 giorni)' $bsod.Count
     $bsod | Select-Object -First 5 | ForEach-Object { '    ' + (DataOra $_.TimeCreated) + ' - ' + ((("$($_.Message)") -split "`n")[0]).Trim() }
     if ($bsod.Count) { Flag "$($bsod.Count) schermate blu negli ultimi 90 giorni" }
     KV 'File minidump' (@(Get-ChildItem "$env:windir\Minidump" -Filter *.dmp).Count)
-    $kp = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 41; StartTime = $d30 })
+    $kp = @(Ev @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 41; StartTime = $d30 })
     KV 'Spegnimenti improvvisi (30 giorni)' $kp.Count
     if ($kp.Count -ge 3) { Flag "$($kp.Count) spegnimenti improvvisi negli ultimi 30 giorni" }
-    $whea = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WHEA-Logger'; StartTime = $d30 })
+    $whea = @(Ev @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WHEA-Logger'; StartTime = $d30 })
     KV 'Errori hardware WHEA (30 giorni)' $whea.Count
     if ($whea.Count) { Flag "$($whea.Count) errori hardware WHEA negli ultimi 30 giorni" }
-    $de = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'disk', 'Ntfs', 'stornvme', 'storahci'; Level = 1, 2, 3; StartTime = $d30 })
+    $de = @(Ev @{ LogName = 'System'; ProviderName = 'disk', 'Ntfs', 'stornvme', 'storahci'; Level = 1, 2, 3; StartTime = $d30 })
     KV 'Errori e avvisi del disco (30 giorni)' $de.Count
     if ($de.Count) { Flag "$($de.Count) errori o avvisi del disco negli ultimi 30 giorni" }
     ''
     'Programmi andati in crash (30 giorni):'
-    Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 1000; StartTime = $d30 } | ForEach-Object { "$($_.Properties[0].Value)" } |
+    Ev @{ LogName = 'Application'; Id = 1000; StartTime = $d30 } | ForEach-Object { "$($_.Properties[0].Value)" } |
         Group-Object | Sort-Object Count -Descending | Select-Object -First 10 | ForEach-Object { '  {0} - {1} volte' -f $_.Name, $_.Count }
     foreach ($lg in 'System', 'Application') {
         ''
         "Errori piu frequenti nel registro $lg (7 giorni):"
-        Get-WinEvent -FilterHashtable @{ LogName = $lg; Level = 1, 2; StartTime = (Get-Date).AddDays(-7) } | Group-Object ProviderName, Id | Sort-Object Count -Descending | Select-Object -First 15 | ForEach-Object {
+        Ev @{ LogName = $lg; Level = 1, 2; StartTime = (Get-Date).AddDays(-7) } | Group-Object ProviderName, Id | Sort-Object Count -Descending | Select-Object -First 15 | ForEach-Object {
             $m = "$($_.Group[0].Message)" -replace '\s+', ' '
             if ($m.Length -gt 160) { $m = $m.Substring(0, 160) + '...' }
             '  {0} volte - {1} - {2}' -f $_.Count, $_.Name, $m
