@@ -1,7 +1,7 @@
 # RinascitaPC — istruzioni per Claude
 
 Script batch (`RinascitaPC.bat`) per ottimizzare il PC Windows 11 di Vincenzo; funziona anche su Windows 10. Scrivi sempre in italiano, messaggi brevi e chiari.
-Versione attuale: 4.0 del 18-11-2026 (variabile `VERSIONE` in testa allo script). Il file usa fine riga CRLF e solo caratteri ASCII: mantienili.
+Versione attuale: 4.1 del 18-11-2026 (variabile `VERSIONE` in testa allo script). Il file usa fine riga CRLF e solo caratteri ASCII: mantienili.
 
 ## Repository pubblico
 - Questo repository e' pubblico (dal 18-11-2026): le prove su Windows di GitHub Actions sono gratis. Il vecchio repository privato `RinascitaPC` resta come archivio.
@@ -9,6 +9,7 @@ Versione attuale: 4.0 del 18-11-2026 (variabile `VERSIONE` in testa allo script)
 
 ## Struttura dello script
 - Menu 1-13 come prima; 14 RIPARA TUTTO (riavvio se in sospeso, poi verifica e solo le correzioni dei punti segnalati, riavvio e verifica automatica con RunOnce e argomento `ripara`/`verifica`; con la variabile RINASCITA_SOLOPIANO mostra solo il piano). Provata sull'Acer il 18-11-2026: riavvio, ripartenza e verifica funzionano; 15 ANALISI COMPLETA (sola lettura).
+- 4.1 (dal rapporto dell'Acer A315-23 del 18-11-2026): doppio antivirus (propone di togliere quello di terze parti, mai Defender), programmi pubblicitari desktop (App Explorer, Memory Cleaner; uTorrent solo con conferma), app preinstallate del produttore, telemetria Acer/AMD, OneDriveSetup all'avvio se OneDrive non c'e', dispositivi in errore e driver, sigla e tensione della batteria, temperatura massima del disco, ripristino di Windows Update, Wi-Fi bloccato dalla Posizione.
 - Lo script PowerShell dell'opzione 15 sta in fondo al file, dopo la riga `#PS_ANALISI#`: il batch lo estrae in `%OUT%\analisi.ps1` e lo esegue. Il batch non deve mai arrivare a quella riga.
 
 ## Rapporti

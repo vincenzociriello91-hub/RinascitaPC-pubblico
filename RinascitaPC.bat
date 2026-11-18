@@ -33,7 +33,7 @@ setlocal EnableExtensions
 :: Se lo script parte da PowerShell 7 (es. Terminale di Windows), PSModulePath punta ai suoi
 :: moduli e il PowerShell 5.1 usato qui non trova i comandi: vuota, 5.1 rimette i suoi percorsi.
 set "PSModulePath="
-set "VERSIONE=4.0 del 18-11-2026"
+set "VERSIONE=4.1 del 18-11-2026"
 :: Invio del rapporto via internet, per i PC senza Google Drive per desktop.
 :: RAPPORTO_URL = indirizzo della web app RinascitaPC_ricevitore.gs (vuoto = invio via internet spento)
 set "RAPPORTO_URL=https://script.google.com/macros/s/AKfycbz5eZc7TlzV4RdVIGaoaqr5JZH05P6geqzIIAsYAzhdZAgcLLznEGbgZiFGv1hmQeRf/exec"
@@ -95,7 +95,7 @@ set "N_OK=0"
 set "N_ATT=0"
 set "REGERR=0"
 set "BLOATDATI='Clipchamp.Clipchamp','microsoft.windowscommunicationsapps'"
-set "BLOAT='Microsoft.BingNews','Microsoft.BingWeather','Microsoft.BingSearch','Microsoft.Getstarted','Microsoft.WindowsFeedbackHub','Microsoft.MicrosoftSolitaireCollection','Microsoft.MicrosoftOfficeHub','Microsoft.WindowsMaps','Microsoft.ZuneVideo','Microsoft.PowerAutomateDesktop','Microsoft.Todos','Microsoft.People','Microsoft.549981C3F5F10','Microsoft.Windows.DevHome','MicrosoftTeams','Microsoft.SkypeApp','Microsoft.MixedReality.Portal','Microsoft.Microsoft3DViewer','Microsoft.Messaging','Microsoft.OneConnect','Microsoft.Print3D','*CandyCrush*','*king.com*','*BubbleWitch*','*MarchofEmpires*','*Disney*','*TikTok*','*Facebook*','*Instagram*','*Twitter*','*LinkedIn*'"
+set "BLOAT='Microsoft.BingNews','Microsoft.BingWeather','Microsoft.BingSearch','Microsoft.Getstarted','Microsoft.WindowsFeedbackHub','Microsoft.MicrosoftSolitaireCollection','Microsoft.MicrosoftOfficeHub','Microsoft.WindowsMaps','Microsoft.ZuneVideo','Microsoft.PowerAutomateDesktop','Microsoft.Todos','Microsoft.People','Microsoft.549981C3F5F10','Microsoft.Windows.DevHome','MicrosoftTeams','Microsoft.SkypeApp','Microsoft.MixedReality.Portal','Microsoft.Microsoft3DViewer','Microsoft.Messaging','Microsoft.OneConnect','Microsoft.Print3D','*CandyCrush*','*king.com*','*BubbleWitch*','*MarchofEmpires*','*Disney*','*TikTok*','*Facebook*','*Instagram*','*Twitter*','*LinkedIn*','*CyberLinkCorp*','MAGIXSoftwareGmbH*','C27EB4BA.DropboxOEM','AcerIncorporated.AcerCollectionS','AcerIncorporated.AcerRegistration','AcerIncorporated.UserExperienceImprovementProgram'"
 
 call :autoaggiorna
 if defined UPD_RIAVVIO exit /b
@@ -396,18 +396,18 @@ exit /b
 :analisi
 echo.
 echo  Analizzo il PC e verifico la connessione a internet...
-for %%v in (NOME MARCA MODELLO TIPO SERIALE BIOS BIOSDATA BIOSANNI CPU GPU GPUNV GPUAMD INTEL RAM RAMMOD RAMSLOT DISCO BATT BATTPRES WIN GESTITO ALTROUTENTE ALTROSID UTEMP PROFILO PORTATILE RETE) do set "HW_%%v="
+for %%v in (NOME MARCA MODELLO TIPO SERIALE BIOS BIOSDATA BIOSANNI CPU GPU GPUNV GPUAMD INTEL RAM RAMMOD RAMSLOT DISCO BATT BATTPRES BATTNOME BATTV WIN GESTITO ALTROUTENTE ALTROSID UTEMP PROFILO PORTATILE RETE) do set "HW_%%v="
 set "PS=$ErrorActionPreference='SilentlyContinue'; function C($v){ ([string]$v -replace '\((R|TM|C)\)','' -replace '[\x28\x29]',' ' -replace '[\x22\x25\x26\x3C\x3E\x5E\x7C\x21\x3D]','' -replace '\s+',' ').Trim() }"
 set "PS=%PS%; $cs=Get-CimInstance Win32_ComputerSystem; $csp=Get-CimInstance Win32_ComputerSystemProduct; $bios=Get-CimInstance Win32_BIOS; $cpu=Get-CimInstance Win32_Processor | Select-Object -First 1; $marca=C $cs.Manufacturer; $tipo=C $cs.Model; $mod=$tipo; if($marca -match 'LENOVO' -and $csp.Version){ $mod=C $csp.Version }"
 set "PS=%PS%; $g=@(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch 'Basic|Remote|Virtual|Mirror|DisplayLink|Meta' }); $gn=($g | ForEach-Object { C $_.Name }) -join ' + '; $nv=[int]($gn -match 'NVIDIA'); $amd=[int]($gn -match 'AMD|Radeon'); $intel=[int](($gn -match 'Intel') -or ($cpu.Manufacturer -match 'Intel'))"
 set "PS=%PS%; $mods=@(Get-CimInstance Win32_PhysicalMemory); $ram=[math]::Round(($mods | Measure-Object -Property Capacity -Sum).Sum/1GB); if(-not $ram){ $ram=[math]::Round($cs.TotalPhysicalMemory/1GB) }; $slot=(Get-CimInstance Win32_PhysicalMemoryArray | Where-Object { $_.Use -eq 3 } | Measure-Object -Property MemoryDevices -Sum).Sum; if(-not $slot){ $slot=$mods.Count }"
 set "PS=%PS%; $pd=@(Get-PhysicalDisk | Where-Object { $_.BusType -notmatch 'USB' }); $hdd=@($pd | Where-Object { $_.MediaType -eq 'HDD' }).Count; $ssd=@($pd | Where-Object { $_.MediaType -eq 'SSD' -or $_.BusType -eq 'NVMe' }).Count; $disco=if($hdd -and $ssd){'SSD + HDD'}elseif($hdd){'HDD'}elseif($ssd){'SSD'}elseif($pd.Count){'tipo non indicato'}else{'non rilevato'}"
-set "PS=%PS%; $bs=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData | Select-Object -First 1; $bf=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity | Select-Object -First 1; $bat=''; if($bs.DesignedCapacity -gt 0 -and $bf.FullChargedCapacity -gt 0){ $bat=[math]::Round(100*$bf.FullChargedCapacity/$bs.DesignedCapacity) }; $bp=[int](@(Get-CimInstance Win32_Battery).Count -gt 0); if(-not $bat){ $bx=Join-Path $env:TEMP 'rinascitapc_batt.xml'; powercfg /batteryreport /xml /output $bx | Out-Null; if(Test-Path -LiteralPath $bx){ $b1=([xml](Get-Content -LiteralPath $bx -Raw)).BatteryReport.Batteries.Battery | Select-Object -First 1; if($b1 -and [double]$b1.DesignCapacity -gt 0 -and [double]$b1.FullChargeCapacity -gt 0){ $bat=[math]::Round(100*[double]$b1.FullChargeCapacity/[double]$b1.DesignCapacity); $bp=1 }; Remove-Item -LiteralPath $bx -Force } }"
+set "PS=%PS%; $bs=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData | Select-Object -First 1; $bf=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity | Select-Object -First 1; $bat=''; if($bs.DesignedCapacity -gt 0 -and $bf.FullChargedCapacity -gt 0){ $bat=[math]::Round(100*$bf.FullChargedCapacity/$bs.DesignedCapacity) }; $bp=[int](@(Get-CimInstance Win32_Battery).Count -gt 0); $b0=Get-CimInstance Win32_Battery | Select-Object -First 1; $bn=C $b0.Name; $bv=''; if($b0.DesignVoltage){ $bv=([math]::Round($b0.DesignVoltage/1000,1)).ToString([Globalization.CultureInfo]::InvariantCulture) }; if(-not $bat){ $bx=Join-Path $env:TEMP 'rinascitapc_batt.xml'; powercfg /batteryreport /xml /output $bx | Out-Null; if(Test-Path -LiteralPath $bx){ $b1=([xml](Get-Content -LiteralPath $bx -Raw)).BatteryReport.Batteries.Battery | Select-Object -First 1; if($b1 -and [double]$b1.DesignCapacity -gt 0 -and [double]$b1.FullChargeCapacity -gt 0){ $bat=[math]::Round(100*[double]$b1.FullChargeCapacity/[double]$b1.DesignCapacity); $bp=1 }; Remove-Item -LiteralPath $bx -Force } }"
 set "PS=%PS%; $bd=''; $ba=0; if($bios.ReleaseDate){ $bd=$bios.ReleaseDate.ToString('dd-MM-yyyy'); $ba=[int][math]::Floor(((Get-Date)-$bios.ReleaseDate).TotalDays/365) }; $os=Get-CimInstance Win32_OperatingSystem; $dv=(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').DisplayVersion; $win=C ($os.Caption + ' ' + $dv + ' build ' + $os.BuildNumber)"
 set "PS=%PS%; $gest=[int](($cs.PartOfDomain -eq $true) -or [bool](Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Enrollments' | Where-Object { (Get-ItemProperty -LiteralPath $_.PSPath).ProviderID -eq 'MS DM Server' }))"
 set "PS=%PS%; $ex=Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'explorer.exe' } | Select-Object -First 1; $ou=''; $osid=''; $ut=''; $pp=''; if($ex){ $ou=[string](Invoke-CimMethod -InputObject $ex -MethodName GetOwner).User; $osid=[string](Invoke-CimMethod -InputObject $ex -MethodName GetOwnerSid).Sid }; if($ou -and $osid -and ($ou -ne $env:USERNAME)){ $pp=(Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $osid)).ProfileImagePath; if($pp){ $ut=([string]$pp).TrimEnd('\') + '\AppData\Local\Temp' } } else { $ou=''; $osid='' }"
 set "PS=%PS%; $net=0; @('http://www.msftconnecttest.com/connecttest.txt','https://www.microsoft.com') | ForEach-Object { if(-not $net){ try { [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $null=Invoke-WebRequest -Uri $_ -Method Head -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop; $net=1 } catch {} } }"
-set "PS=%PS%; $mb=$marca; $hit=@('Lenovo','ASUS','Dell','Acer','MSI','HP','Samsung','Huawei','Microsoft','Toshiba','Dynabook','Fujitsu','Medion','Xiaomi','Honor','Razer','Gigabyte','Framework') | Where-Object { $marca -match $_ } | Select-Object -First 1; if($hit){ $mb=$hit }; if($marca -match 'Hewlett'){ $mb='HP' }; if($marca -match 'Micro-Star'){ $mb='MSI' }; $nome=if($mod -like ($mb + ' *')){ $mod } else { ($mb + ' ' + $mod).Trim() }; $res=@(('NOME=' + $nome), ('MARCA=' + $marca), ('MODELLO=' + $mod), ('TIPO=' + $tipo), ('SERIALE=' + (C $bios.SerialNumber)), ('BIOS=' + (C $bios.SMBIOSBIOSVersion)), ('BIOSDATA=' + $bd), ('BIOSANNI=' + $ba), ('CPU=' + (C $cpu.Name)), ('GPU=' + $gn), ('GPUNV=' + $nv), ('GPUAMD=' + $amd), ('INTEL=' + $intel), ('RAM=' + $ram), ('RAMMOD=' + $mods.Count), ('RAMSLOT=' + $slot), ('DISCO=' + $disco), ('BATT=' + $bat), ('BATTPRES=' + $bp), ('WIN=' + $win), ('GESTITO=' + $gest), ('ALTROUTENTE=' + (C $ou)), ('ALTROSID=' + (C $osid)), ('UTEMP=' + $ut), ('PROFILO=' + $pp), ('PORTATILE=' + [int]((@(Get-CimInstance Win32_Battery | Where-Object { $_ }).Count -gt 0) -or ($cs.PCSystemType -eq 2))), ('RETE=' + $net)); Set-Content -LiteralPath (Join-Path $env:OUT 'hw.tmp') -Value $res -Encoding ASCII"
+set "PS=%PS%; $mb=$marca; $hit=@('Lenovo','ASUS','Dell','Acer','MSI','HP','Samsung','Huawei','Microsoft','Toshiba','Dynabook','Fujitsu','Medion','Xiaomi','Honor','Razer','Gigabyte','Framework') | Where-Object { $marca -match $_ } | Select-Object -First 1; if($hit){ $mb=$hit }; if($marca -match 'Hewlett'){ $mb='HP' }; if($marca -match 'Micro-Star'){ $mb='MSI' }; $nome=if($mod -like ($mb + ' *')){ $mod } else { ($mb + ' ' + $mod).Trim() }; $res=@(('NOME=' + $nome), ('MARCA=' + $marca), ('MODELLO=' + $mod), ('TIPO=' + $tipo), ('SERIALE=' + (C $bios.SerialNumber)), ('BIOS=' + (C $bios.SMBIOSBIOSVersion)), ('BIOSDATA=' + $bd), ('BIOSANNI=' + $ba), ('CPU=' + (C $cpu.Name)), ('GPU=' + $gn), ('GPUNV=' + $nv), ('GPUAMD=' + $amd), ('INTEL=' + $intel), ('RAM=' + $ram), ('RAMMOD=' + $mods.Count), ('RAMSLOT=' + $slot), ('DISCO=' + $disco), ('BATT=' + $bat), ('BATTPRES=' + $bp), ('BATTNOME=' + $bn), ('BATTV=' + $bv), ('WIN=' + $win), ('GESTITO=' + $gest), ('ALTROUTENTE=' + (C $ou)), ('ALTROSID=' + (C $osid)), ('UTEMP=' + $ut), ('PROFILO=' + $pp), ('PORTATILE=' + [int]((@(Get-CimInstance Win32_Battery | Where-Object { $_ }).Count -gt 0) -or ($cs.PCSystemType -eq 2))), ('RETE=' + $net)); Set-Content -LiteralPath (Join-Path $env:OUT 'hw.tmp') -Value $res -Encoding ASCII"
 del "%OUT%\hw.tmp" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%" >nul 2>&1
 if exist "%OUT%\hw.tmp" for /f "usebackq tokens=1* delims==" %%a in ("%OUT%\hw.tmp") do set "HW_%%a=%%b"
@@ -420,6 +420,8 @@ set "HW_BATTTXT=assente"
 if "%HW_PORTATILE%"=="1" set "HW_BATTTXT=non rilevata da Windows"
 if "%HW_BATTPRES%"=="1" set "HW_BATTTXT=presente, salute non leggibile"
 if defined HW_BATT set "HW_BATTTXT=salute %HW_BATT% percento"
+if defined HW_BATTNOME set "HW_BATTTXT=%HW_BATTTXT% - sigla %HW_BATTNOME%"
+if defined HW_BATTV set "HW_BATTTXT=%HW_BATTTXT% %HW_BATTV% V"
 set "UK=HKCU"
 if defined HW_ALTROSID set "UK=HKU\%HW_ALTROSID%"
 
@@ -485,7 +487,8 @@ echo   Vengono rimosse, se presenti: Notizie, Meteo, Bing Search, Suggerimenti,
 echo   Feedback Hub, Solitaire, Microsoft 365 Hub, Mappe, Film e TV,
 echo   Power Automate, To Do, Persone, Cortana,
 echo   Dev Home, Teams personale vecchio, Skype, Realta' mista, Visualizzatore 3D
-echo   e app promozionali (Candy Crush, TikTok, Disney+, Facebook, Instagram...).
+echo   e app promozionali (Candy Crush, TikTok, Disney+, Facebook, Instagram...),
+echo   oltre alle prove preinstallate del produttore (CyberLink, MAGIX, Dropbox, Acer).
 echo.
 echo   NON vengono toccati: Store, Foto, Calcolatrice, Blocco note, Paint,
 echo   Fotocamera, Strumento di cattura, Lettore multimediale, Assistenza,
@@ -525,6 +528,8 @@ for %%v in (SilentInstalledAppsEnabled PreInstalledAppsEnabled OemPreInstalledAp
 reg add "%UK%\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v Start_IrisRecommendations /t REG_DWORD /d 0 /f >nul 2>&1 || set /a REGERR+=1
 reg add "%UK%\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" /v Enabled /t REG_DWORD /d 0 /f >nul 2>&1 || set /a REGERR+=1
 if %REGERR% GTR 0 (call :esito "Blocco pubblicita' e app sponsorizzate" ATT "%REGERR% impostazioni non applicate") else (call :esito "Blocco pubblicita' e app sponsorizzate" OK "applicato")
+
+call :adware
 
 echo.
 echo   Programmi di terze parti spesso preinstallati o in prova trovati sul PC:
@@ -782,10 +787,16 @@ call :log "Tolgo i risultati web di Bing dalla ricerca del menu Start (piu' velo
 reg add "%UK%\Software\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /t REG_DWORD /d 1 /f >nul 2>&1 || set /a REGERR+=1
 
 call :log "Disattivo servizi superflui: telemetria, mappe offline, modalita' demo"
-for %%s in (DiagTrack MapsBroker RetailDemo) do (
+for %%s in (DiagTrack MapsBroker RetailDemo AUEPLauncher) do (
     sc stop %%s >nul 2>&1
     sc config %%s start= disabled >nul 2>&1
 )
+call :log "Disattivo la telemetria del produttore (Acer, AMD) e le attivita' pubblicitarie"
+powershell -NoProfile -Command "$n=0; foreach($t in @(Get-ScheduledTask | Where-Object { $_.State -ne 'Disabled' -and $_.TaskName -match '^(StartAUEP|UEIPInvitation|App Explorer)$' })){ if(Disable-ScheduledTask -TaskName $t.TaskName -TaskPath $t.TaskPath -ErrorAction SilentlyContinue){ $n++; if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    disattivata: ' + $t.TaskName) -Encoding ASCII } } }; exit $n"
+powershell -NoProfile -Command "$od=@((Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\OneDrive.exe'),(Join-Path $env:ProgramFiles 'Microsoft OneDrive\OneDrive.exe'),(Join-Path ${env:ProgramFiles(x86)} 'Microsoft OneDrive\OneDrive.exe')) | Where-Object { Test-Path -LiteralPath $_ }; if($env:HW_PROFILO -and (Test-Path -LiteralPath (Join-Path $env:HW_PROFILO 'AppData\Local\Microsoft\OneDrive\OneDrive.exe'))){ exit 0 }; if($od){ exit 0 }; $n=0; foreach($p in @('HKLM:\Software\Microsoft\Windows\CurrentVersion','HKCU:\Software\Microsoft\Windows\CurrentVersion')){ if(Get-ItemProperty -LiteralPath ($p + '\Run') -Name OneDriveSetup -ErrorAction SilentlyContinue){ $a=$p + '\Explorer\StartupApproved\Run'; if(-not (Test-Path -LiteralPath $a)){ New-Item -Path $a -Force | Out-Null }; New-ItemProperty -LiteralPath $a -Name OneDriveSetup -PropertyType Binary -Value ([byte[]](3,0,0,0,0,0,0,0,0,0,0,0)) -Force | Out-Null; $n++ } }; exit $n"
+if not errorlevel 1 goto prest_onedrive_fine
+call :log "OneDrive non e' installato: tolgo dall'avvio il suo programma di installazione"
+:prest_onedrive_fine
 
 call :log "RAM: file di paging gestito da Windows e compressione della memoria attiva"
 powershell -NoProfile -Command "try { Enable-MMAgent -MemoryCompression -ErrorAction Stop } catch {}; try { $cs=Get-CimInstance Win32_ComputerSystem -ErrorAction Stop; if(-not $cs.AutomaticManagedPagefile){ Set-CimInstance -InputObject $cs -Property @{AutomaticManagedPagefile=$true} -ErrorAction Stop }; exit 0 } catch { exit 1 }"
@@ -940,8 +951,9 @@ set "PS=%PS%; $cpu=Get-CimInstance Win32_Processor | Select-Object -First 1; W (
 set "PS=%PS%; $mods=@(Get-CimInstance Win32_PhysicalMemory); $tot=[math]::Round(($mods | Measure-Object -Property Capacity -Sum).Sum/1GB); $slot=(Get-CimInstance Win32_PhysicalMemoryArray | Where-Object { $_.Use -eq 3 } | Measure-Object -Property MemoryDevices -Sum).Sum; if(-not $slot){ $slot=$mods.Count }; W ('  RAM     : ' + $tot + ' GB installati - moduli: ' + $mods.Count + ', posizioni: ' + $slot); foreach($m in $mods){ W ('            ' + [math]::Round($m.Capacity/1GB) + ' GB a ' + $m.ConfiguredClockSpeed + ' MHz (' + (([string]$m.BankLabel + ' ' + [string]$m.DeviceLocator).Trim()) + ')') }"
 set "PS=%PS%; if($tot -gt 0 -and $tot -lt 16){ if($mods.Count -lt $slot){ $tips+='RAM: risulta una posizione libera. Aggiungendo un modulo identico arrivi a 16 GB in dual channel, il potenziamento piu'' utile (verifica con HWiNFO o sulla scheda tecnica del modello).' } elseif($mods.Count -eq 1){ $tips+='RAM: un solo modulo, quindi niente dual channel. Se non e'' saldata, due moduli identici fanno una grande differenza.' } else { $tips+='RAM: tutte le posizioni sono occupate. Per averne di piu'' servono moduli piu'' grandi: prima controlla sulla scheda tecnica quanta RAM supporta il tuo modello, alcuni arrivano solo a 12 GB.' } }"
 set "PS=%PS%; foreach($d in Get-PhysicalDisk | Where-Object { $_.BusType -notmatch 'USB' }){ $r=$d | Get-StorageReliabilityCounter; W ('  Disco   : ' + $d.FriendlyName + ' - ' + $d.MediaType + ' ' + $d.BusType + ' - ' + [math]::Round($d.Size/1GB) + ' GB - stato: ' + $d.HealthStatus); if($r.Temperature){ W ('            temperatura ' + $r.Temperature + ' C, usura ' + $r.Wear + ' percento') }; if($d.MediaType -eq 'HDD'){ $tips+='DISCO: hai un disco meccanico (HDD). Passare a un SSD e'' il singolo potenziamento che cambia di piu'' la velocita''.' }; if($d.HealthStatus -and $d.HealthStatus -ne 'Healthy'){ $tips+=('DISCO: ' + $d.FriendlyName + ' segnala problemi. Fai subito un backup dei tuoi file.') } }"
+set "PS=%PS%; foreach($d in Get-PhysicalDisk | Where-Object { $_.BusType -notmatch 'USB' }){ $r=$d | Get-StorageReliabilityCounter; if($r.TemperatureMax -ge 75){ $tips+=('DISCO: ' + $d.FriendlyName + ' ha toccato ' + $r.TemperatureMax + ' C. Pulisci le ventole dalla polvere e non tenere il portatile su superfici morbide.') } }"
 set "PS=%PS%; $v=Get-Volume -DriveLetter $env:DRV; if($v.Size){ W ('  Spazio  : ' + [math]::Round($v.SizeRemaining/1GB) + ' GB liberi su ' + [math]::Round($v.Size/1GB) + ' GB'); if($v.SizeRemaining/$v.Size -lt 0.15){ $tips+='SPAZIO: meno del 15 percento libero rallenta Windows. Usa WizTree per trovare i file piu'' pesanti.' } }"
-set "PS=%PS%; if($env:HW_BATT){ W ('  Batteria: ' + $env:HW_BATT + ' percento della capacita'' originale'); if([int]$env:HW_BATT -lt 70){ $tips+='BATTERIA: sotto il 70 percento della capacita'' originale. Una batteria nuova restituisce autonomia.' } }"
+set "PS=%PS%; if($env:HW_BATT){ W ('  Batteria: ' + $env:HW_BATT + ' percento della capacita'' originale'); if([int]$env:HW_BATT -lt 70){ $tips+=('BATTERIA: sotto il 70 percento della capacita'' originale. Una batteria nuova restituisce autonomia: compra quella con sigla ' + $env:HW_BATTNOME + ' e tensione ' + $env:HW_BATTV + ' V, la tensione deve essere uguale.') } }"
 set "PS=%PS%; if([int]$env:HW_BIOSANNI -ge 2){ $tips+=('BIOS: la versione installata e'' del ' + $env:HW_BIOSDATA + '. Aggiornalo con l''app del produttore: spesso migliora stabilita'', consumi e gestione della ventola.') }"
 set "PS=%PS%; $tips+='TEMPERATURE: se il PC ha qualche anno, pulire le ventole dalla polvere e rifare la pasta termica abbassa le temperature piu'' di qualsiasi software. Controllale con HWiNFO.'; W ''; W '  CONSIGLI PER IL TUO HARDWARE' 'Cyan'; foreach($t in $tips){ W ('  - ' + $t) 'Yellow' }"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
@@ -992,13 +1004,20 @@ set /a V_ATT+=%errorlevel%
 :verifica_sistema
 set "PS=$ErrorActionPreference='SilentlyContinue'; $global:a=0; function Riga($t,$x){ $c=@{OK='Green';ATT='Yellow';INFO='Gray'}[$t]; $g=@{OK='[OK] ';ATT='[!!] ';INFO='[i]  '}[$t]; Write-Host ('  ' + $g + $x) -ForegroundColor $c; Add-Content -LiteralPath $env:VER -Value ($g + $x); if($t -eq 'ATT'){ $global:a++ } }"
 set "PS=%PS%; $left=@(); foreach($x in @(%BLOAT%)){ $left+=@(Get-AppxPackage -AllUsers -Name $x | ForEach-Object { $_.Name }) }; $left=@($left | Select-Object -Unique); if($left.Count -eq 0){ Riga 'OK' 'App inutili: nessuna presente' } else { Riga 'ATT' ('App inutili presenti, ripeti l''opzione 3: ' + ($left -join ', ')) }"
-set "PS=%PS%; $sv=@(Get-Service -Name DiagTrack,MapsBroker,RetailDemo | Where-Object { [string]$_.StartType -ne 'Disabled' }); if($sv.Count -eq 0){ Riga 'OK' 'Servizi superflui disattivati' } else { Riga 'ATT' ('Servizi ancora attivi, ripeti l''opzione 8: ' + (($sv | ForEach-Object { $_.Name }) -join ', ')) }"
+set "PS=%PS%; $sv=@(Get-Service -Name DiagTrack,MapsBroker,RetailDemo,AUEPLauncher | Where-Object { [string]$_.StartType -ne 'Disabled' }); if($sv.Count -eq 0){ Riga 'OK' 'Servizi superflui disattivati' } else { Riga 'ATT' ('Servizi ancora attivi, ripeti l''opzione 8: ' + (($sv | ForEach-Object { $_.Name }) -join ', ')) }"
 set "PS=%PS%; $m=[regex]::Matches(((& powercfg /qh SCHEME_CURRENT 54533251-82be-4824-96c1-47b60b740d00 be337238-0d82-4146-a960-4f3749d470c7) -join ' '),'0x([0-9a-fA-F]{8})'); if($m.Count -ge 2){ $ac=[Convert]::ToInt32($m[0].Groups[1].Value,16); $nm=@{0='Fresco e silenzioso';1='Bilanciato';2='Prestazioni massime'}[$ac]; if($nm){ Riga 'OK' ('Profilo termico attivo: ' + $nm) } else { Riga 'INFO' ('Profilo termico: impostazione di Windows o del produttore, valore ' + $ac) } } else { Riga 'INFO' 'Profilo termico non leggibile' }"
 set "PS=%PS%; $mm=Get-MMAgent; $cs=Get-CimInstance Win32_ComputerSystem; if($mm.MemoryCompression -and $cs.AutomaticManagedPagefile){ Riga 'OK' 'Memoria: compressione attiva e file di paging gestito da Windows' } else { Riga 'ATT' 'Memoria: compressione o file di paging non ottimali, ripeti l''opzione 8' }"
 set "PS=%PS%; $tr=(& fsutil behavior query DisableDeleteNotify) -join ' '; if($tr -match 'NTFS DisableDeleteNotify\s*=\s*0'){ Riga 'OK' 'TRIM attivo per gli SSD' } elseif($tr -match 'NTFS DisableDeleteNotify\s*=\s*1'){ Riga 'ATT' 'TRIM disattivato: ripeti l''opzione 10' } else { Riga 'INFO' 'Stato TRIM non leggibile' }"
 set "PS=%PS%; $v=Get-Volume -DriveLetter $env:DRV; if($v.Size){ $pc=[math]::Round(100*$v.SizeRemaining/$v.Size); if($pc -ge 15){ Riga 'OK' ('Spazio libero sul disco di sistema: ' + $pc + ' percento') } else { Riga 'ATT' ('Spazio libero solo ' + $pc + ' percento: libera spazio con l''opzione 4 o con WizTree') } }"
 set "PS=%PS%; $bd=@(Get-PhysicalDisk | Where-Object { $_.BusType -notmatch 'USB' -and $_.HealthStatus -and $_.HealthStatus -ne 'Healthy' }); if($bd.Count -eq 0){ Riga 'OK' 'Salute dei dischi interni: buona' } else { Riga 'ATT' ('Disco con problemi, fai subito un backup: ' + (($bd | ForEach-Object { $_.FriendlyName }) -join ', ')) }"
 set "PS=%PS%; $mp=Get-MpComputerStatus; if(-not $mp){ Riga 'INFO' 'Stato antivirus non leggibile' } elseif($mp.AMRunningMode -and [string]$mp.AMRunningMode -ne 'Normal'){ Riga 'INFO' 'Antivirus di terze parti attivo: controllalo dalla sua app' } elseif($mp.AntivirusEnabled -and $mp.RealTimeProtectionEnabled -and $mp.AntivirusSignatureAge -le 3){ Riga 'OK' 'Antivirus attivo e aggiornato' } else { Riga 'ATT' 'Antivirus disattivato o con firme vecchie: apri Sicurezza di Windows' }; exit $global:a"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
+set /a V_ATT+=%errorlevel%
+set "PS=$ErrorActionPreference='SilentlyContinue'; $global:a=0; function Riga($t,$x){ $c=@{OK='Green';ATT='Yellow';INFO='Gray'}[$t]; $g=@{OK='[OK] ';ATT='[!!] ';INFO='[i]  '}[$t]; Write-Host ('  ' + $g + $x) -ForegroundColor $c; Add-Content -LiteralPath $env:VER -Value ($g + $x); if($t -eq 'ATT'){ $global:a++ } }"
+set "PS=%PS%; $av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { (([int]$_.productState -shr 12) -band 0xF) -eq 1 }); $tp=@($av | Where-Object { $_.displayName -notmatch 'Defender' }); if($av.Count -gt 1 -and $tp.Count){ Riga 'ATT' ('Due antivirus attivi insieme (' + (($av | ForEach-Object { $_.displayName }) -join ' + ') + '): tienine uno solo, l''opzione 14 ti propone di togliere ' + $tp[0].displayName) }"
+set "PS=%PS%; $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'; $ad=@(Get-ItemProperty $k | Where-Object { ([string]$_.DisplayName + ' ' + [string]$_.Publisher) -match 'SweetLabs|KoshyJohn' } | ForEach-Object { $_.DisplayName } | Select-Object -Unique); if($ad.Count){ Riga 'ATT' ('Programmi pubblicitari presenti: ' + ($ad -join ', ') + ' - li toglie l''opzione 14 o la 3') }"
+set "PS=%PS%; $bad=@(Get-PnpDevice -PresentOnly | Where-Object { [string]$_.Status -eq 'Error' }); if($bad.Count){ Riga 'ATT' ('Dispositivi con problemi: ' + (($bad | ForEach-Object { if($_.FriendlyName){ $_.FriendlyName } else { $_.Class } }) -join ', ') + ' - l''opzione 14 cerca i driver aggiornati') } else { Riga 'OK' 'Dispositivi: nessuno in errore' }"
+set "PS=%PS%; $wu=@(Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-WindowsUpdateClient'; Id=20; StartTime=(Get-Date).AddDays(-7)} -ErrorAction SilentlyContinue); if($wu.Count -ge 3){ Riga 'ATT' ('Aggiornamenti di Windows che falliscono ripetutamente: ' + $wu.Count + ' errori in 7 giorni - l''opzione 14 ripristina Windows Update') } else { Riga 'OK' 'Windows Update: nessun errore ripetuto' }; exit $global:a"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
 set /a V_ATT+=%errorlevel%
 echo.
@@ -1049,12 +1068,15 @@ set "MODO=TUTTO"
 call :log "=== RIPARA TUTTO su %HW_NOME% ==="
 :: Prima la verifica (sola lettura), poi solo le correzioni dei punti segnalati.
 call :verifica
-for %%f in (RIPARA PREST AGG AV BLOAT DISCHI PULIZIA) do set "F_%%f="
+for %%f in (RIPARA PREST AGG AV BLOAT DISCHI PULIZIA AV2 DRV WU) do set "F_%%f="
 findstr /l /c:"Immagine di Windows danneggiata" /c:"Immagine di Windows non riparabile" /c:"File di sistema danneggiati" "%VER%" >nul 2>&1 && set "F_RIPARA=1"
 findstr /l /c:"Servizi ancora attivi" /c:"compressione o file di paging non ottimali" "%VER%" >nul 2>&1 && set "F_PREST=1"
 findstr /l /c:"app con aggiornamenti disponibili" /c:"driver da installare" "%VER%" >nul 2>&1 && set "F_AGG=1"
 findstr /l /c:"Antivirus disattivato" "%VER%" >nul 2>&1 && set "F_AV=1"
-findstr /l /c:"App inutili presenti" "%VER%" >nul 2>&1 && set "F_BLOAT=1"
+findstr /l /c:"App inutili presenti" /c:"Programmi pubblicitari presenti" "%VER%" >nul 2>&1 && set "F_BLOAT=1"
+findstr /l /c:"Due antivirus attivi insieme" "%VER%" >nul 2>&1 && set "F_AV2=1"
+findstr /l /c:"Dispositivi con problemi" "%VER%" >nul 2>&1 && set "F_DRV=1"
+findstr /l /c:"Aggiornamenti di Windows che falliscono" "%VER%" >nul 2>&1 && set "F_WU=1"
 findstr /l /c:"TRIM disattivato" "%VER%" >nul 2>&1 && set "F_DISCHI=1"
 findstr /l /c:"Spazio libero solo" "%VER%" >nul 2>&1 && set "F_PULIZIA=1"
 set "PIANO="
@@ -1065,6 +1087,9 @@ if defined F_AV set "PIANO=%PIANO% antivirus"
 if defined F_BLOAT set "PIANO=%PIANO% app-inutili"
 if defined F_DISCHI set "PIANO=%PIANO% dischi"
 if defined F_PULIZIA set "PIANO=%PIANO% pulizia"
+if defined F_WU set "PIANO=%PIANO% Windows-Update"
+if defined F_DRV set "PIANO=%PIANO% driver"
+if defined F_AV2 set "PIANO=%PIANO% doppio-antivirus"
 if not defined PIANO goto ripara_tutto_niente
 call :log "Da sistemare secondo la verifica:%PIANO%"
 :: RINASCITA_SOLOPIANO (usata nelle prove su GitHub): mostra il piano senza modificare nulla
@@ -1073,11 +1098,14 @@ if not defined RP_FATTO call :ripristino
 if defined ANNULLA goto ripara_tutto_annulla
 if defined F_BLOAT call :bloatware
 if defined F_PULIZIA call :pulizia
+if defined F_WU call :wu_reset
 if defined F_RIPARA call :ripara
 if defined F_PREST call :prestazioni
 if defined F_AGG call :aggiorna
+if defined F_DRV call :driver_dispositivi
 if defined F_DISCHI call :dischi
 if defined F_AV call :antivirus_on
+if defined F_AV2 call :antivirus_doppio
 call :log "=== RIPARA TUTTO COMPLETATO ==="
 set "MODO="
 call :esito_riepilogo
@@ -1145,6 +1173,80 @@ set "RC=%errorlevel%"
 del "%APS%" >nul 2>&1
 if not exist "%OUT%\analisi_completa.txt" (call :esito "Analisi completa" ATT "file non creato" & exit /b)
 if "%RC%"=="0" (call :esito "Analisi completa" OK "nessun problema trovato") else (call :esito "Analisi completa" OK "fatta, %RC% punti da controllare nella sezione ANALISI COMPLETA")
+exit /b
+
+:: ==========================================================================
+:: Programmi pubblicitari o inutili (desktop): App Explorer (SweetLabs), Memory Cleaner.
+:: uTorrent solo con conferma. Usa il disinstallatore del programma stesso.
+:adware
+set "PS=function LogR($x){ if($env:LOG){ try { Add-Content -LiteralPath $env:LOG -Value $x -Encoding ASCII -ErrorAction Stop } catch {} } }; $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'; $l=@(Get-ItemProperty $k | Where-Object { $_.DisplayName -and (([string]$_.DisplayName + ' ' + [string]$_.Publisher) -match $env:ADW_RE) } | Sort-Object DisplayName -Unique)"
+set "PS=%PS%; if($env:ADW_AZ -eq 'elenca'){ foreach($a in $l){ Write-Host ('    - ' + $a.DisplayName) -ForegroundColor Yellow }; exit $l.Count }; $n=0; foreach($a in $l){ $q=[string]$a.QuietUninstallString; $u=[string]$a.UninstallString; if(-not $q -and -not $u){ continue }; LogR ('    rimuovo: ' + $a.DisplayName); Write-Host ('  - rimuovo ' + $a.DisplayName); try { if($q){ $c=$q } elseif($u -match 'msiexec'){ $c=($u -replace '/I','/X') + ' /qn /norestart' } else { $c=$u }; $p=Start-Process -FilePath cmd.exe -ArgumentList ('/c ' + $c) -PassThru; if($p.WaitForExit(300000)){ $n++ } else { LogR ('    non finita in 5 minuti: ' + $a.DisplayName) } } catch { LogR ('    errore: ' + $a.DisplayName) } }; exit (100 + $n)"
+set "ADW_RE=SweetLabs|KoshyJohn"
+set "ADW_AZ=elenca"
+echo.
+echo   Programmi pubblicitari o inutili trovati:
+powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
+set "ADW_N=%errorlevel%"
+if "%ADW_N%"=="0" (echo     nessuno& goto adware_torrent)
+echo   Se si apre la finestra di disinstallazione di un programma, completala tu.
+choice /c SN /t 30 /d S /m " Rimuovere questi %ADW_N% programmi (Si automatico tra 30 s)"
+if errorlevel 2 (call :log "Programmi pubblicitari lasciati" & goto adware_torrent)
+set "ADW_AZ="
+powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
+set "RC=%errorlevel%"
+set "NADW="
+if %RC% GEQ 100 set /a NADW=RC-100
+if defined NADW (call :esito "Programmi pubblicitari" OK "%NADW% rimossi su %ADW_N%") else (call :esito "Programmi pubblicitari" ATT "rimozione non riuscita, codice %RC%")
+:adware_torrent
+set "ADW_RE=BitTorrent"
+set "ADW_AZ=elenca"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%" >nul 2>&1
+if "%errorlevel%"=="0" (set "ADW_AZ=" & exit /b)
+echo.
+echo   uTorrent e' installato: puo' mostrare pubblicita' e restare attivo in background.
+choice /c SN /t 30 /d N /m " Rimuovere uTorrent (No automatico tra 30 s)"
+if errorlevel 2 (call :log "uTorrent lasciato" & set "ADW_AZ=" & exit /b)
+set "ADW_AZ="
+powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
+set "RC=%errorlevel%"
+if %RC% GEQ 101 (call :esito "Rimozione uTorrent" OK "fatta") else (call :esito "Rimozione uTorrent" ATT "non riuscita: toglilo da Impostazioni - App - App installate")
+exit /b
+
+:: Windows Update che fallisce di continuo: azzera la sua cache e lo riavvia.
+:wu_reset
+call :titolo "RIPRISTINO DI WINDOWS UPDATE"
+call :log "Fermo Windows Update, azzero la sua cache e lo riavvio"
+for %%s in (wuauserv bits cryptsvc) do net stop %%s >nul 2>&1
+rd /s /q "%SystemRoot%\SoftwareDistribution.old" >nul 2>&1
+ren "%SystemRoot%\SoftwareDistribution" SoftwareDistribution.old >nul 2>&1
+set "WURC=%errorlevel%"
+rd /s /q "%SystemRoot%\System32\catroot2.old" >nul 2>&1
+ren "%SystemRoot%\System32\catroot2" catroot2.old >nul 2>&1
+for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
+usoclient StartInteractiveScan >nul 2>&1
+if "%WURC%"=="0" (call :esito "Ripristino di Windows Update" OK "cache azzerata, ricerca aggiornamenti avviata") else (call :esito "Ripristino di Windows Update" ATT "cache in uso: riprova dopo un riavvio")
+exit /b
+
+:: Dispositivi in errore: driver da Windows Update e pagina ufficiale dei driver.
+:driver_dispositivi
+call :titolo "DRIVER DEI DISPOSITIVI IN ERRORE"
+call :driver_wu
+echo %HW_CPU% %HW_GPU% | findstr /i "AMD Radeon" >nul && (call :log "PC con AMD: apro la pagina ufficiale dei driver AMD, aggiorna il chipset" & start "" explorer "https://www.amd.com/support" & exit /b)
+echo %HW_CPU% | findstr /i "Intel" >nul && (call :log "PC con Intel: apro Intel Driver e Support Assistant" & start "" explorer "https://www.intel.com/content/www/us/en/support/detect.html" & exit /b)
+call :driver_pagina
+exit /b
+
+:: Due antivirus attivi insieme: propone di togliere quello di terze parti.
+:: Microsoft Defender non viene mai disattivato.
+:antivirus_doppio
+call :titolo "DUE ANTIVIRUS ATTIVI INSIEME"
+echo   Due antivirus insieme rallentano il PC, soprattutto all'avvio.
+echo   Microsoft Defender e' gia' incluso in Windows: da solo basta.
+echo   Se l'altro antivirus l'hai pagato o lo vuoi tenere, rispondi N.
+choice /c SN /t 60 /d N /m " Aprire la disinstallazione dell'altro antivirus (No automatico tra 60 s)"
+if errorlevel 2 (call :esito "Due antivirus attivi" ATT "lasciati tutti e due su tua scelta" & exit /b)
+powershell -NoProfile -Command "$av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' }); $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'; $n=0; foreach($a in $av){ $w=([string]$a.displayName -split ' ')[0]; $e=Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object { [string]$_.DisplayName -match [regex]::Escape($w) -and $_.UninstallString } | Select-Object -First 1; if($e){ if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    apro la disinstallazione di ' + $e.DisplayName) -Encoding ASCII }; Start-Process -FilePath cmd.exe -ArgumentList ('/c ' + $e.UninstallString) -Wait; $n++ } }; exit $n"
+if errorlevel 1 (call :esito "Due antivirus attivi" OK "disinstallazione dell'altro antivirus aperta: completala nella sua finestra") else (call :esito "Due antivirus attivi" ATT "disinstallazione non trovata: toglilo da Impostazioni - App - App installate")
 exit /b
 
 :: Da qui in giu' c'e' solo lo script PowerShell dell'opzione 15: il batch non arriva mai qui.
@@ -1291,6 +1393,7 @@ Sec 'DISCHI E SPAZIO' {
             KV '  errori lettura / scrittura' "$($r.ReadErrorsTotal) / $($r.WriteErrorsTotal)"
             if ($r.Wear -ge 70) { Flag "Disco $($d.FriendlyName) consumato al $($r.Wear) %" }
             if ($r.Temperature -ge 65) { Flag "Disco $($d.FriendlyName) caldo: $($r.Temperature) C" }
+            elseif ($r.TemperatureMax -ge 80) { Flag "Disco $($d.FriendlyName) ha toccato $($r.TemperatureMax) C: pulisci le ventole dalla polvere" }
         }
         if ($d.HealthStatus -ne 'Healthy') { Flag "Disco $($d.FriendlyName) in stato $($d.HealthStatus)" }
     }
@@ -1325,7 +1428,8 @@ Sec 'BATTERIA E ALIMENTAZIONE' {
     }
     else {
         foreach ($b in $bat) {
-            KV 'Batteria' "$($b.Name) - carica $($b.EstimatedChargeRemaining) %"
+            KV 'Batteria' "sigla $($b.Name) - carica $($b.EstimatedChargeRemaining) %"
+            if ($b.DesignVoltage) { KV '  tensione nominale' ('{0} V' -f [math]::Round($b.DesignVoltage / 1000, 1)) }
             $st = switch ($b.BatteryStatus) { 1 { 'in scarica' } 2 { 'collegato alla corrente' } 3 { 'carica completa' } 6 { 'in carica' } default { "codice $($b.BatteryStatus)" } }
             KV '  stato' $st
         }
@@ -1337,7 +1441,7 @@ Sec 'BATTERIA E ALIMENTAZIONE' {
             $h = [math]::Round($full / $des * 100)
             KV '  capacita originale' "$des mWh"
             KV '  capacita oggi' "$full mWh ($h % dell'originale)"
-            if ($h -lt 70) { Flag "Batteria consumata: tiene solo il $h % della carica originale" }
+            if ($h -lt 70) { Flag "Batteria consumata: tiene solo il $h % della carica originale. Per il ricambio serve la sigla $($bat[0].Name) con la stessa tensione" }
         }
         if ($cyc) { KV '  cicli di carica' $cyc }
         if ($bs) { KV '  alimentatore collegato' $bs.PowerOnline; KV '  tensione' "$($bs.Voltage) mV" }
@@ -1377,7 +1481,9 @@ Sec 'RETE E INTERNET' {
     }
     ''
     'Wi-Fi:'
-    netsh wlan show interfaces | Where-Object { $_ -match ':' } | ForEach-Object { '  ' + $_.Trim() }
+    $wl = @(netsh wlan show interfaces 2>&1 | ForEach-Object { "$_" })
+    if (($wl -join ' ') -match 'WlanQueryInterface|privacy-location') { Info 'Segnale Wi-Fi non leggibile: Windows 11 lo mostra solo con la Posizione attiva (Impostazioni > Privacy e sicurezza > Posizione)' }
+    else { $wl | Where-Object { $_ -match ':' } | ForEach-Object { '  ' + $_.Trim() } }
     ''
     $gw = if ($attive.Count) { $attive[0].IPv4DefaultGateway.NextHop | Select-Object -First 1 } else { $null }
     foreach ($t in @(@('router', $gw), @('Internet 8.8.8.8', '8.8.8.8'), @('Internet 1.1.1.1', '1.1.1.1'))) {
@@ -1397,7 +1503,10 @@ Sec 'RETE E INTERNET' {
 # ---------------------------------------------------------------- PERIFERICHE
 Sec 'PERIFERICHE E DRIVER' {
     $bad = @(Get-PnpDevice -PresentOnly | Where-Object { $_.Status -ne 'OK' -and $_.Status -ne 'Unknown' })
-    if ($bad.Count) { foreach ($d in $bad) { Flag "Dispositivo con problemi: $(if ($d.FriendlyName) { $d.FriendlyName } else { $d.InstanceId }) [$($d.Class)] - stato $($d.Status) - codice $($d.ConfigManagerErrorCode)" } }
+    if ($bad.Count) { foreach ($d in $bad) { Flag "Dispositivo con problemi: $(if ($d.FriendlyName) { $d.FriendlyName } else { $d.InstanceId }) [$($d.Class)] - stato $($d.Status) - codice $($d.ConfigManagerErrorCode)" }
+        $amd = ($cpu | Where-Object { $_.Name -match 'AMD' }) -ne $null
+        if ($amd) { Info 'Su PC AMD i sensori e le periferiche interne dipendono dal driver del chipset: aggiornalo da https://www.amd.com/support' }
+        else { Info 'Aggiorna i driver dal sito del produttore del PC o con l''opzione 14' } }
     else { Info 'Tutti i dispositivi funzionano' }
     KV 'Dispositivi presenti' (@(Get-PnpDevice -PresentOnly).Count)
     ''

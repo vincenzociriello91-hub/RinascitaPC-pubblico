@@ -19,7 +19,7 @@ Scarica `RinascitaPC.bat`, fai doppio clic e rispondi Si alla richiesta di Windo
 11. Diagnostica hardware e consigli
 12. Scheda hardware
 13. Verifica (sola lettura)
-14. Ripara tutto: sistema da solo i punti trovati dalla verifica, riavvii compresi
+14. Ripara tutto: fa la verifica e sistema solo i punti che trova, riavvii compresi
 15. Analisi completa del PC, hardware e software (sola lettura)
 
 I file personali non vengono mai toccati. Prima di ogni modifica viene creato un punto di ripristino. Alla fine trovi sul Desktop un rapporto con tutto quello che e' stato fatto.
