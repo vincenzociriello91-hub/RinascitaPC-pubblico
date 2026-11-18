@@ -33,7 +33,7 @@ setlocal EnableExtensions
 :: Se lo script parte da PowerShell 7 (es. Terminale di Windows), PSModulePath punta ai suoi
 :: moduli e il PowerShell 5.1 usato qui non trova i comandi: vuota, 5.1 rimette i suoi percorsi.
 set "PSModulePath="
-set "VERSIONE=4.1 del 18-11-2026"
+set "VERSIONE=4.2 del 18-11-2026"
 :: Invio del rapporto via internet, per i PC senza Google Drive per desktop.
 :: RAPPORTO_URL = indirizzo della web app RinascitaPC_ricevitore.gs (vuoto = invio via internet spento)
 set "RAPPORTO_URL=https://script.google.com/macros/s/AKfycbz5eZc7TlzV4RdVIGaoaqr5JZH05P6geqzIIAsYAzhdZAgcLLznEGbgZiFGv1hmQeRf/exec"
@@ -396,18 +396,18 @@ exit /b
 :analisi
 echo.
 echo  Analizzo il PC e verifico la connessione a internet...
-for %%v in (NOME MARCA MODELLO TIPO SERIALE BIOS BIOSDATA BIOSANNI CPU GPU GPUNV GPUAMD INTEL RAM RAMMOD RAMSLOT DISCO BATT BATTPRES BATTNOME BATTV WIN GESTITO ALTROUTENTE ALTROSID UTEMP PROFILO PORTATILE RETE) do set "HW_%%v="
+for %%v in (NOME MARCA MODELLO TIPO SERIALE BIOS BIOSDATA BIOSANNI CPU GPU GPUNV GPUAMD INTEL RAM RAMMOD RAMSLOT DISCO BATT BATTPRES BATTNOME BATTV BATTCELLE WIN GESTITO ALTROUTENTE ALTROSID UTEMP PROFILO PORTATILE RETE) do set "HW_%%v="
 set "PS=$ErrorActionPreference='SilentlyContinue'; function C($v){ ([string]$v -replace '\((R|TM|C)\)','' -replace '[\x28\x29]',' ' -replace '[\x22\x25\x26\x3C\x3E\x5E\x7C\x21\x3D]','' -replace '\s+',' ').Trim() }"
 set "PS=%PS%; $cs=Get-CimInstance Win32_ComputerSystem; $csp=Get-CimInstance Win32_ComputerSystemProduct; $bios=Get-CimInstance Win32_BIOS; $cpu=Get-CimInstance Win32_Processor | Select-Object -First 1; $marca=C $cs.Manufacturer; $tipo=C $cs.Model; $mod=$tipo; if($marca -match 'LENOVO' -and $csp.Version){ $mod=C $csp.Version }"
 set "PS=%PS%; $g=@(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch 'Basic|Remote|Virtual|Mirror|DisplayLink|Meta' }); $gn=($g | ForEach-Object { C $_.Name }) -join ' + '; $nv=[int]($gn -match 'NVIDIA'); $amd=[int]($gn -match 'AMD|Radeon'); $intel=[int](($gn -match 'Intel') -or ($cpu.Manufacturer -match 'Intel'))"
 set "PS=%PS%; $mods=@(Get-CimInstance Win32_PhysicalMemory); $ram=[math]::Round(($mods | Measure-Object -Property Capacity -Sum).Sum/1GB); if(-not $ram){ $ram=[math]::Round($cs.TotalPhysicalMemory/1GB) }; $slot=(Get-CimInstance Win32_PhysicalMemoryArray | Where-Object { $_.Use -eq 3 } | Measure-Object -Property MemoryDevices -Sum).Sum; if(-not $slot){ $slot=$mods.Count }"
 set "PS=%PS%; $pd=@(Get-PhysicalDisk | Where-Object { $_.BusType -notmatch 'USB' }); $hdd=@($pd | Where-Object { $_.MediaType -eq 'HDD' }).Count; $ssd=@($pd | Where-Object { $_.MediaType -eq 'SSD' -or $_.BusType -eq 'NVMe' }).Count; $disco=if($hdd -and $ssd){'SSD + HDD'}elseif($hdd){'HDD'}elseif($ssd){'SSD'}elseif($pd.Count){'tipo non indicato'}else{'non rilevato'}"
-set "PS=%PS%; $bs=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData | Select-Object -First 1; $bf=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity | Select-Object -First 1; $bat=''; if($bs.DesignedCapacity -gt 0 -and $bf.FullChargedCapacity -gt 0){ $bat=[math]::Round(100*$bf.FullChargedCapacity/$bs.DesignedCapacity) }; $bp=[int](@(Get-CimInstance Win32_Battery).Count -gt 0); $b0=Get-CimInstance Win32_Battery | Select-Object -First 1; $bn=C $b0.Name; $bv=''; if($b0.DesignVoltage){ $bv=([math]::Round($b0.DesignVoltage/1000,1)).ToString([Globalization.CultureInfo]::InvariantCulture) }; if(-not $bat){ $bx=Join-Path $env:TEMP 'rinascitapc_batt.xml'; powercfg /batteryreport /xml /output $bx | Out-Null; if(Test-Path -LiteralPath $bx){ $b1=([xml](Get-Content -LiteralPath $bx -Raw)).BatteryReport.Batteries.Battery | Select-Object -First 1; if($b1 -and [double]$b1.DesignCapacity -gt 0 -and [double]$b1.FullChargeCapacity -gt 0){ $bat=[math]::Round(100*[double]$b1.FullChargeCapacity/[double]$b1.DesignCapacity); $bp=1 }; Remove-Item -LiteralPath $bx -Force } }"
+set "PS=%PS%; $bs=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData | Select-Object -First 1; $bf=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity | Select-Object -First 1; $bat=''; if($bs.DesignedCapacity -gt 0 -and $bf.FullChargedCapacity -gt 0){ $bat=[math]::Round(100*$bf.FullChargedCapacity/$bs.DesignedCapacity) }; $bp=[int](@(Get-CimInstance Win32_Battery).Count -gt 0); $b0=Get-CimInstance Win32_Battery | Select-Object -First 1; $bn=C $b0.Name; $bv=''; $bc=''; if($b0.DesignVoltage){ $ce=[math]::Max(1,[math]::Round($b0.DesignVoltage/4000)); $bc=$ce; $bv=([math]::Round($ce*3.8,1)).ToString([Globalization.CultureInfo]::InvariantCulture) }; if(-not $bat){ $bx=Join-Path $env:TEMP 'rinascitapc_batt.xml'; powercfg /batteryreport /xml /output $bx | Out-Null; if(Test-Path -LiteralPath $bx){ $b1=([xml](Get-Content -LiteralPath $bx -Raw)).BatteryReport.Batteries.Battery | Select-Object -First 1; if($b1 -and [double]$b1.DesignCapacity -gt 0 -and [double]$b1.FullChargeCapacity -gt 0){ $bat=[math]::Round(100*[double]$b1.FullChargeCapacity/[double]$b1.DesignCapacity); $bp=1 }; Remove-Item -LiteralPath $bx -Force } }"
 set "PS=%PS%; $bd=''; $ba=0; if($bios.ReleaseDate){ $bd=$bios.ReleaseDate.ToString('dd-MM-yyyy'); $ba=[int][math]::Floor(((Get-Date)-$bios.ReleaseDate).TotalDays/365) }; $os=Get-CimInstance Win32_OperatingSystem; $dv=(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').DisplayVersion; $win=C ($os.Caption + ' ' + $dv + ' build ' + $os.BuildNumber)"
 set "PS=%PS%; $gest=[int](($cs.PartOfDomain -eq $true) -or [bool](Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Enrollments' | Where-Object { (Get-ItemProperty -LiteralPath $_.PSPath).ProviderID -eq 'MS DM Server' }))"
 set "PS=%PS%; $ex=Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'explorer.exe' } | Select-Object -First 1; $ou=''; $osid=''; $ut=''; $pp=''; if($ex){ $ou=[string](Invoke-CimMethod -InputObject $ex -MethodName GetOwner).User; $osid=[string](Invoke-CimMethod -InputObject $ex -MethodName GetOwnerSid).Sid }; if($ou -and $osid -and ($ou -ne $env:USERNAME)){ $pp=(Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $osid)).ProfileImagePath; if($pp){ $ut=([string]$pp).TrimEnd('\') + '\AppData\Local\Temp' } } else { $ou=''; $osid='' }"
 set "PS=%PS%; $net=0; @('http://www.msftconnecttest.com/connecttest.txt','https://www.microsoft.com') | ForEach-Object { if(-not $net){ try { [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $null=Invoke-WebRequest -Uri $_ -Method Head -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop; $net=1 } catch {} } }"
-set "PS=%PS%; $mb=$marca; $hit=@('Lenovo','ASUS','Dell','Acer','MSI','HP','Samsung','Huawei','Microsoft','Toshiba','Dynabook','Fujitsu','Medion','Xiaomi','Honor','Razer','Gigabyte','Framework') | Where-Object { $marca -match $_ } | Select-Object -First 1; if($hit){ $mb=$hit }; if($marca -match 'Hewlett'){ $mb='HP' }; if($marca -match 'Micro-Star'){ $mb='MSI' }; $nome=if($mod -like ($mb + ' *')){ $mod } else { ($mb + ' ' + $mod).Trim() }; $res=@(('NOME=' + $nome), ('MARCA=' + $marca), ('MODELLO=' + $mod), ('TIPO=' + $tipo), ('SERIALE=' + (C $bios.SerialNumber)), ('BIOS=' + (C $bios.SMBIOSBIOSVersion)), ('BIOSDATA=' + $bd), ('BIOSANNI=' + $ba), ('CPU=' + (C $cpu.Name)), ('GPU=' + $gn), ('GPUNV=' + $nv), ('GPUAMD=' + $amd), ('INTEL=' + $intel), ('RAM=' + $ram), ('RAMMOD=' + $mods.Count), ('RAMSLOT=' + $slot), ('DISCO=' + $disco), ('BATT=' + $bat), ('BATTPRES=' + $bp), ('BATTNOME=' + $bn), ('BATTV=' + $bv), ('WIN=' + $win), ('GESTITO=' + $gest), ('ALTROUTENTE=' + (C $ou)), ('ALTROSID=' + (C $osid)), ('UTEMP=' + $ut), ('PROFILO=' + $pp), ('PORTATILE=' + [int]((@(Get-CimInstance Win32_Battery | Where-Object { $_ }).Count -gt 0) -or ($cs.PCSystemType -eq 2))), ('RETE=' + $net)); Set-Content -LiteralPath (Join-Path $env:OUT 'hw.tmp') -Value $res -Encoding ASCII"
+set "PS=%PS%; $mb=$marca; $hit=@('Lenovo','ASUS','Dell','Acer','MSI','HP','Samsung','Huawei','Microsoft','Toshiba','Dynabook','Fujitsu','Medion','Xiaomi','Honor','Razer','Gigabyte','Framework') | Where-Object { $marca -match $_ } | Select-Object -First 1; if($hit){ $mb=$hit }; if($marca -match 'Hewlett'){ $mb='HP' }; if($marca -match 'Micro-Star'){ $mb='MSI' }; $nome=if($mod -like ($mb + ' *')){ $mod } else { ($mb + ' ' + $mod).Trim() }; $res=@(('NOME=' + $nome), ('MARCA=' + $marca), ('MODELLO=' + $mod), ('TIPO=' + $tipo), ('SERIALE=' + (C $bios.SerialNumber)), ('BIOS=' + (C $bios.SMBIOSBIOSVersion)), ('BIOSDATA=' + $bd), ('BIOSANNI=' + $ba), ('CPU=' + (C $cpu.Name)), ('GPU=' + $gn), ('GPUNV=' + $nv), ('GPUAMD=' + $amd), ('INTEL=' + $intel), ('RAM=' + $ram), ('RAMMOD=' + $mods.Count), ('RAMSLOT=' + $slot), ('DISCO=' + $disco), ('BATT=' + $bat), ('BATTPRES=' + $bp), ('BATTNOME=' + $bn), ('BATTV=' + $bv), ('BATTCELLE=' + $bc), ('WIN=' + $win), ('GESTITO=' + $gest), ('ALTROUTENTE=' + (C $ou)), ('ALTROSID=' + (C $osid)), ('UTEMP=' + $ut), ('PROFILO=' + $pp), ('PORTATILE=' + [int]((@(Get-CimInstance Win32_Battery | Where-Object { $_ }).Count -gt 0) -or ($cs.PCSystemType -eq 2))), ('RETE=' + $net)); Set-Content -LiteralPath (Join-Path $env:OUT 'hw.tmp') -Value $res -Encoding ASCII"
 del "%OUT%\hw.tmp" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%" >nul 2>&1
 if exist "%OUT%\hw.tmp" for /f "usebackq tokens=1* delims==" %%a in ("%OUT%\hw.tmp") do set "HW_%%a=%%b"
@@ -421,7 +421,8 @@ if "%HW_PORTATILE%"=="1" set "HW_BATTTXT=non rilevata da Windows"
 if "%HW_BATTPRES%"=="1" set "HW_BATTTXT=presente, salute non leggibile"
 if defined HW_BATT set "HW_BATTTXT=salute %HW_BATT% percento"
 if defined HW_BATTNOME set "HW_BATTTXT=%HW_BATTTXT% - sigla %HW_BATTNOME%"
-if defined HW_BATTV set "HW_BATTTXT=%HW_BATTTXT% %HW_BATTV% V"
+if defined HW_BATTV set "HW_BATTTXT=%HW_BATTTXT% %HW_BATTV% V nominali"
+if defined HW_BATTCELLE set "HW_BATTTXT=%HW_BATTTXT%, %HW_BATTCELLE% celle"
 set "UK=HKCU"
 if defined HW_ALTROSID set "UK=HKU\%HW_ALTROSID%"
 
@@ -1014,10 +1015,10 @@ set "PS=%PS%; $mp=Get-MpComputerStatus; if(-not $mp){ Riga 'INFO' 'Stato antivir
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
 set /a V_ATT+=%errorlevel%
 set "PS=$ErrorActionPreference='SilentlyContinue'; $global:a=0; function Riga($t,$x){ $c=@{OK='Green';ATT='Yellow';INFO='Gray'}[$t]; $g=@{OK='[OK] ';ATT='[!!] ';INFO='[i]  '}[$t]; Write-Host ('  ' + $g + $x) -ForegroundColor $c; Add-Content -LiteralPath $env:VER -Value ($g + $x); if($t -eq 'ATT'){ $global:a++ } }"
-set "PS=%PS%; $av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { (([int]$_.productState -shr 12) -band 0xF) -eq 1 }); $tp=@($av | Where-Object { $_.displayName -notmatch 'Defender' }); if($av.Count -gt 1 -and $tp.Count){ Riga 'ATT' ('Due antivirus attivi insieme (' + (($av | ForEach-Object { $_.displayName }) -join ' + ') + '): tienine uno solo, l''opzione 14 ti propone di togliere ' + $tp[0].displayName) }"
+set "PS=%PS%; $all=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct); $st=@($all | Where-Object { $_.displayName -notmatch 'Defender' -and -not (-not $_.pathToSignedProductExe -or (Test-Path -LiteralPath ([Environment]::ExpandEnvironmentVariables([string]$_.pathToSignedProductExe)))) }); if($st.Count){ Riga 'ATT' ('Antivirus gia tolto ma ancora registrato in Sicurezza di Windows: ' + (($st | ForEach-Object { $_.displayName }) -join ', ') + ' - l''opzione 14 pulisce la registrazione') }; $av=@($all | Where-Object { ((([int]$_.productState -shr 12) -band 0xF) -eq 1) -and (-not $_.pathToSignedProductExe -or (Test-Path -LiteralPath ([Environment]::ExpandEnvironmentVariables([string]$_.pathToSignedProductExe)))) }); $tp=@($av | Where-Object { $_.displayName -notmatch 'Defender' }); if($av.Count -gt 1 -and $tp.Count){ Riga 'ATT' ('Due antivirus attivi insieme (' + (($av | ForEach-Object { $_.displayName }) -join ' + ') + '): tienine uno solo, l''opzione 14 ti propone di togliere ' + $tp[0].displayName) }"
 set "PS=%PS%; $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'; $ad=@(Get-ItemProperty $k | Where-Object { ([string]$_.DisplayName + ' ' + [string]$_.Publisher) -match 'SweetLabs|KoshyJohn' } | ForEach-Object { $_.DisplayName } | Select-Object -Unique); if($ad.Count){ Riga 'ATT' ('Programmi pubblicitari presenti: ' + ($ad -join ', ') + ' - li toglie l''opzione 14 o la 3') }"
 set "PS=%PS%; $bad=@(Get-PnpDevice -PresentOnly | Where-Object { [string]$_.Status -eq 'Error' }); if($bad.Count){ Riga 'ATT' ('Dispositivi con problemi: ' + (($bad | ForEach-Object { if($_.FriendlyName){ $_.FriendlyName } elseif($_.Class){ $_.Class } else { [string]$_.InstanceId } }) -join ', ') + ' - l''opzione 14 cerca i driver aggiornati') } else { Riga 'OK' 'Dispositivi: nessuno in errore' }"
-set "PS=%PS%; $wu=@(Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-WindowsUpdateClient'; Id=20; StartTime=(Get-Date).AddDays(-7)} -ErrorAction SilentlyContinue); if($wu.Count -ge 3){ Riga 'ATT' ('Aggiornamenti di Windows che falliscono ripetutamente: ' + $wu.Count + ' errori in 7 giorni - l''opzione 14 ripristina Windows Update') } else { Riga 'OK' 'Windows Update: nessun errore ripetuto' }; exit $global:a"
+set "PS=%PS%; $since=(Get-Date).AddDays(-7); $wf=Join-Path $env:ProgramData 'RinascitaPC\wu_reset.txt'; if(Test-Path -LiteralPath $wf){ $wr=[datetime](Get-Content -LiteralPath $wf -TotalCount 1); if($wr -gt $since){ $since=$wr } }; $wu=@(Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-WindowsUpdateClient'; Id=20; StartTime=$since} -ErrorAction SilentlyContinue); if($wu.Count -ge 3){ Riga 'ATT' ('Aggiornamenti di Windows che falliscono ripetutamente: ' + $wu.Count + ' errori in 7 giorni - l''opzione 14 ripristina Windows Update') } else { Riga 'OK' 'Windows Update: nessun errore ripetuto' }; exit $global:a"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS%"
 set /a V_ATT+=%errorlevel%
 echo.
@@ -1074,7 +1075,7 @@ findstr /l /c:"Servizi ancora attivi" /c:"compressione o file di paging non otti
 findstr /l /c:"app con aggiornamenti disponibili" /c:"driver da installare" "%VER%" >nul 2>&1 && set "F_AGG=1"
 findstr /l /c:"Antivirus disattivato" "%VER%" >nul 2>&1 && set "F_AV=1"
 findstr /l /c:"App inutili presenti" /c:"Programmi pubblicitari presenti" "%VER%" >nul 2>&1 && set "F_BLOAT=1"
-findstr /l /c:"Due antivirus attivi insieme" "%VER%" >nul 2>&1 && set "F_AV2=1"
+findstr /l /c:"Due antivirus attivi insieme" /c:"ancora registrato in Sicurezza di Windows" "%VER%" >nul 2>&1 && set "F_AV2=1"
 findstr /l /c:"Dispositivi con problemi" "%VER%" >nul 2>&1 && set "F_DRV=1"
 findstr /l /c:"Aggiornamenti di Windows che falliscono" "%VER%" >nul 2>&1 && set "F_WU=1"
 findstr /l /c:"TRIM disattivato" "%VER%" >nul 2>&1 && set "F_DISCHI=1"
@@ -1099,54 +1100,34 @@ if defined ANNULLA goto ripara_tutto_annulla
 if defined F_BLOAT call :bloatware
 if defined F_PULIZIA call :pulizia
 if defined F_WU call :wu_reset
-if defined F_RIPARA call :ripara
-if defined F_PREST call :prestazioni
-if defined F_AGG call :aggiorna
-if defined F_DRV call :driver_dispositivi
-if defined F_DISCHI call :dischi
-if defined F_AV call :antivirus_on
-if defined F_AV2 call :antivirus_doppio
-call :log "=== RIPARA TUTTO COMPLETATO ==="
-set "MODO="
-call :esito_riepilogo
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v RinascitaPC /t REG_SZ /d "\"%SELF%\" verifica" /f >nul 2>&1
-call :log "Riavvio il PC tra 2 minuti: dopo il riavvio la verifica parte da sola"
-call :rapporto
-shutdown /r /t 120 /c "RinascitaPC: riparazione finita. Riavvio tra 2 minuti, poi parte la verifica."
-exit
-
-:ripara_tutto_niente
-call :log "La verifica non ha trovato niente da sistemare: nessuna modifica"
-:ripara_tutto_niente_fine
-set "MODO="
-call :esito_riepilogo
-call :rapporto
-echo.
-pause
-goto menu
-
-:ripara_tutto_annulla
-call :log "Riparazione annullata: senza punto di ripristino non modifico Windows"
-set "ANNULLA="
-set "MODO="
-call :rapporto
-pause
-goto menu
-
-:verifica_dopo_ripara
-set "ARG1="
-call :esito_reset
-call :verifica
-call :rapporto
-echo.
-echo Verifica dopo la riparazione finita. Premi un tasto per tornare al menu.
-pause >nul
-goto menu
-
-:riavvio_sospeso
-set "RIAVVIO=0"
-reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" >nul 2>&1 && set "RIAVVIO=1"
-reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" >nul 2>&1 && set "RIAVVIO=1"
+call :titolo "RIPRISTINO DI WINDOWS UPDATE"
+call :log "Fermo Windows Update e i servizi collegati, azzero la sua cache e lo riavvio"
+set "WUTRY=0"
+:wu_reset_ferma
+for %%s in (wuauserv UsoSvc DoSvc WaaSMedicSvc bits cryptsvc msiserver) do net stop %%s /y >nul 2>&1
+timeout /t 5 /nobreak >nul
+rd /s /q "%SystemRoot%\SoftwareDistribution.old" >nul 2>&1
+ren "%SystemRoot%\SoftwareDistribution" SoftwareDistribution.old >nul 2>&1 && goto wu_reset_ok
+set /a WUTRY+=1
+if %WUTRY% LSS 3 goto wu_reset_ferma
+for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
+call :esito "Ripristino di Windows Update" ATT "cache ancora in uso: riavvia il PC e ripeti l'opzione 14"
+exit /b
+:wu_reset_ok
+rd /s /q "%SystemRoot%\System32\catroot2.old" >nul 2>&1
+ren "%SystemRoot%\System32\catroot2" catroot2.old >nul 2>&1
+for %%s in (cryptsvc bits wuauserv) do net start %%s >nul 2>&1
+powershell -NoProfile -Command "$d=Join-Path $env:ProgramData 'RinascitaPC'; New-Item -ItemType Directory -Force -Path $d | Out-Null; Set-Content -LiteralPath (Join-Path $d 'wu_reset.txt') -Value (Get-Date -Format o) -Encoding ASCII"
+usoclient StartInteractiveScan >nul 2>&1
+call :esito "Ripristino di Windows Update" OK "cache azzerata, ricerca aggiornamenti avviata"
+exit /b
+echo   Due antivirus insieme rallentano il PC, soprattutto all'avvio.
+echo   Microsoft Defender e' gia' incluso in Windows: da solo basta.
+echo   Se l'altro antivirus l'hai pagato o lo vuoi tenere, rispondi N.
+choice /c SN /t 60 /d N /m " Aprire la disinstallazione dell'altro antivirus (No automatico tra 60 s)"
+if errorlevel 2 (call :esito "Due antivirus attivi" ATT "lasciati tutti e due su tua scelta" & exit /b)
+powershell -NoProfile -Command "$av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Where-Object { $_.displayName -notmatch 'Defender' }); $k='HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'; $n=0; foreach($a in $av){ $w=([string]$a.displayName -split ' ')[0]; $e=Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object { ([string]$_.DisplayName + ' ' + [string]$_.Publisher) -match [regex]::Escape($w) -and $_.UninstallString } | Select-Object -First 1; if($e){ if($env:LOG){ Add-Content -LiteralPath $env:LOG -Value ('    apro la disinstallazione di ' + $e.DisplayName) -Encoding ASCII }; Start-Process -FilePath cmd.exe -ArgumentList ('/c ' + $e.UninstallString) -Wait; $n++ } }; exit $n"
+if errorlevel 1 (call :esito "Due antivirus attivi" OK "disinstallazione dell'altro antivirus aperta: completala nella sua finestra") else (call :esito "Due antivirus attivi" ATT "disinstallazione non trovata: usa lo strumento di rimozione ufficiale del produttore (per Norton: Norton Remove and Reinstall)")
 exit /b
 
 :antivirus_on
@@ -1429,7 +1410,7 @@ Sec 'BATTERIA E ALIMENTAZIONE' {
     else {
         foreach ($b in $bat) {
             KV 'Batteria' "sigla $($b.Name) - carica $($b.EstimatedChargeRemaining) %"
-            if ($b.DesignVoltage) { KV '  tensione nominale' ('{0} V' -f [math]::Round($b.DesignVoltage / 1000, 1)) }
+            if ($b.DesignVoltage) { $ce = [math]::Max(1, [math]::Round($b.DesignVoltage / 4000)); KV '  tensione' ('{0} V nominali, {1} celle (da carica piena {2} V)' -f [math]::Round($ce * 3.8, 1), $ce, [math]::Round($b.DesignVoltage / 1000, 1)) }
             $st = switch ($b.BatteryStatus) { 1 { 'in scarica' } 2 { 'collegato alla corrente' } 3 { 'carica completa' } 6 { 'in carica' } default { "codice $($b.BatteryStatus)" } }
             KV '  stato' $st
         }
