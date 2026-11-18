@@ -8,7 +8,7 @@ Versione attuale: 4.0 del 18-11-2026 (variabile `VERSIONE` in testa allo script)
 - Nel repository `RAPPORTO_KEY` e' vuota. Al momento della pubblicazione inserisci la chiave copiandola dalla versione gia' pubblicata (`?a=file`, riga `set "RAPPORTO_KEY=..."`). Mai scriverla qui, nei commit o nei messaggi.
 
 ## Struttura dello script
-- Menu 1-13 come prima; 14 RIPARA TUTTO (riavvio se in sospeso, poi ripara + prestazioni + aggiorna + antivirus, riavvio e verifica automatica con RunOnce e argomento `ripara`/`verifica`); 15 ANALISI COMPLETA (sola lettura).
+- Menu 1-13 come prima; 14 RIPARA TUTTO (riavvio se in sospeso, poi verifica e solo le correzioni dei punti segnalati, riavvio e verifica automatica; con la variabile RINASCITA_SOLOPIANO mostra solo il piano con RunOnce e argomento `ripara`/`verifica`); 15 ANALISI COMPLETA (sola lettura).
 - Lo script PowerShell dell'opzione 15 sta in fondo al file, dopo la riga `#PS_ANALISI#`: il batch lo estrae in `%OUT%\analisi.ps1` e lo esegue. Il batch non deve mai arrivare a quella riga.
 
 ## Rapporti

@@ -1020,7 +1020,7 @@ echo   %VT%%~2
 >>"%VER%" echo %VT%%~2
 exit /b
 :: ==========================================================================
-:: Opzione 14: ripara da sola i punti che la verifica trova. Se c'e' un riavvio in
+:: Opzione 14: fa la verifica e ripara solo i punti che trova. Se c'e' un riavvio in
 :: sospeso riavvia prima il PC e riparte da sola; alla fine riavvia e rifa' la verifica,
 :: cosi' il rapporto finale arriva in chat senza fare altro.
 :ripara_tutto
@@ -1046,12 +1046,37 @@ exit
 set "ARG1="
 set "MODO=TUTTO"
 call :log "=== RIPARA TUTTO su %HW_NOME% ==="
+:: Prima la verifica (sola lettura), poi solo le correzioni dei punti segnalati.
+call :verifica
+for %%f in (RIPARA PREST AGG AV BLOAT DISCHI PULIZIA) do set "F_%%f="
+findstr /l /c:"Immagine di Windows danneggiata" /c:"Immagine di Windows non riparabile" /c:"File di sistema danneggiati" "%VER%" >nul 2>&1 && set "F_RIPARA=1"
+findstr /l /c:"Servizi ancora attivi" /c:"compressione o file di paging non ottimali" "%VER%" >nul 2>&1 && set "F_PREST=1"
+findstr /l /c:"app con aggiornamenti disponibili" /c:"driver da installare" "%VER%" >nul 2>&1 && set "F_AGG=1"
+findstr /l /c:"Antivirus disattivato" "%VER%" >nul 2>&1 && set "F_AV=1"
+findstr /l /c:"App inutili presenti" "%VER%" >nul 2>&1 && set "F_BLOAT=1"
+findstr /l /c:"TRIM disattivato" "%VER%" >nul 2>&1 && set "F_DISCHI=1"
+findstr /l /c:"Spazio libero solo" "%VER%" >nul 2>&1 && set "F_PULIZIA=1"
+set "PIANO="
+if defined F_RIPARA set "PIANO=%PIANO% riparazione-Windows"
+if defined F_PREST set "PIANO=%PIANO% servizi-e-memoria"
+if defined F_AGG set "PIANO=%PIANO% aggiornamenti"
+if defined F_AV set "PIANO=%PIANO% antivirus"
+if defined F_BLOAT set "PIANO=%PIANO% app-inutili"
+if defined F_DISCHI set "PIANO=%PIANO% dischi"
+if defined F_PULIZIA set "PIANO=%PIANO% pulizia"
+if not defined PIANO goto ripara_tutto_niente
+call :log "Da sistemare secondo la verifica:%PIANO%"
+:: RINASCITA_SOLOPIANO (usata nelle prove su GitHub): mostra il piano senza modificare nulla
+if defined RINASCITA_SOLOPIANO goto ripara_tutto_niente_fine
 if not defined RP_FATTO call :ripristino
 if defined ANNULLA goto ripara_tutto_annulla
-call :ripara
-call :prestazioni
-call :aggiorna
-call :antivirus_on
+if defined F_BLOAT call :bloatware
+if defined F_PULIZIA call :pulizia
+if defined F_RIPARA call :ripara
+if defined F_PREST call :prestazioni
+if defined F_AGG call :aggiorna
+if defined F_DISCHI call :dischi
+if defined F_AV call :antivirus_on
 call :log "=== RIPARA TUTTO COMPLETATO ==="
 set "MODO="
 call :esito_riepilogo
@@ -1060,6 +1085,16 @@ call :log "Riavvio il PC tra 2 minuti: dopo il riavvio la verifica parte da sola
 call :rapporto
 shutdown /r /t 120 /c "RinascitaPC: riparazione finita. Riavvio tra 2 minuti, poi parte la verifica."
 exit
+
+:ripara_tutto_niente
+call :log "La verifica non ha trovato niente da sistemare: nessuna modifica"
+:ripara_tutto_niente_fine
+set "MODO="
+call :esito_riepilogo
+call :rapporto
+echo.
+pause
+goto menu
 
 :ripara_tutto_annulla
 call :log "Riparazione annullata: senza punto di ripristino non modifico Windows"

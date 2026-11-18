@@ -37,3 +37,15 @@ jobs:
           Get-Content $f.FullName
           $r = Get-ChildItem -Path ([Environment]::GetFolderPath('Desktop')) -Filter 'RinascitaPC_rapporto_*' -ErrorAction SilentlyContinue | Select-Object -Last 1
           if ($r) { "===== RAPPORTO $($r.Name): $($r.Length) byte" }
+
+      - name: Opzione 14 solo piano (non modifica la macchina)
+        if: always()
+        shell: pwsh
+        timeout-minutes: 30
+        env:
+          RINASCITA_SOLOPIANO: "1"
+        run: |
+          Set-Content in14.txt -Value ("14`r`nS`r`nS" + ("`r`n0" * 50) + "`r`n") -NoNewline -Encoding ascii
+          cmd /c "RinascitaPC.bat < in14.txt > out14.txt 2>&1"
+          Get-Content out14.txt -Tail 70
+          if (-not (Select-String -Path out14.txt -SimpleMatch 'Da sistemare secondo la verifica' -Quiet) -and -not (Select-String -Path out14.txt -SimpleMatch 'non ha trovato niente da sistemare' -Quiet)) { throw 'piano dell opzione 14 non calcolato' }
