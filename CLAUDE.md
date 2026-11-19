@@ -1,7 +1,7 @@
 # RinascitaPC — istruzioni per Claude
 
 Script batch (`RinascitaPC.bat`) per ottimizzare il PC Windows 11 di Vincenzo; funziona anche su Windows 10. Scrivi sempre in italiano, messaggi brevi e chiari.
-Versione attuale: 4.2 del 18-11-2026 (variabile `VERSIONE` in testa allo script). Il file usa fine riga CRLF e solo caratteri ASCII: mantienili.
+Versione attuale: 4.3 del 19-11-2026 (variabile `VERSIONE` in testa allo script). Il file usa fine riga CRLF e solo caratteri ASCII: mantienili.
 
 ## Repository pubblico
 - Questo repository e' pubblico (dal 18-11-2026): le prove su Windows di GitHub Actions sono gratis. Il vecchio repository privato `RinascitaPC` resta come archivio.
